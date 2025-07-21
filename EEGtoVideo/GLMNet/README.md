@@ -18,5 +18,15 @@ Example structure:
 }
 ```
 
-`multi_inference.py` should load this JSON once and look up the description
-corresponding to the predicted label for each category.
+`multi_inference.py` loads this JSON and automatically maps the
+predicted class indices from each checkpoint to their textual
+descriptions.  The script infers the label category from the checkpoint
+directory name (everything after the first underscore).
+
+Example usage:
+
+```bash
+python multi_inference.py \
+  --eeg example.npy \
+  --checkpoint_dirs ckpt_color ckpt_face ckpt_human ckpt_label ckpt_obj_number
+```
