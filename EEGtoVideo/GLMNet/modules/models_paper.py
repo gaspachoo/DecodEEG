@@ -26,7 +26,6 @@ from torch import Tensor
 from torch.autograd import Variable
 from einops import rearrange
 from einops.layers.torch import Rearrange, Reduce
-from einops import rearrange
 
 class PatchEmbedding(nn.Module):
     def __init__(self, emb_size=40):
