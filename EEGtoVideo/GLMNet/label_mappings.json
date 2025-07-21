@@ -1,0 +1,30 @@
+{
+    "color": {
+        "0": "black and white",
+        "1": "color"
+    },
+    "face_appearance": {
+        "0": "no face visible",
+        "1": "face visible"
+    },
+    "human_appearance": {
+        "0": "no human",
+        "1": "human present"
+    },
+    "label": {
+        "1": "example label 1",
+        "2": "example label 2"
+    },
+    "label_cluster": {
+        "0": "cluster zero",
+        "1": "cluster one"
+    },
+    "obj_number": {
+        "0": "single object",
+        "1": "multiple objects"
+    },
+    "optical_flow_score": {
+        "0": "low motion",
+        "1": "high motion"
+    }
+}
