@@ -8,7 +8,7 @@ import pickle
 class GLMNet(nn.Module):
     """ShallowNet (raw) + MLP (freq) → concat → FC."""
 
-    def __init__(self, occipital_idx, C: int, T: int, out_dim: int = 40, emb_dim: int = 4096):
+    def __init__(self, occipital_idx, C: int, T: int, out_dim: int = 40, emb_dim: int = 512):
         """Construct the GLMNet model.
 
         Parameters
@@ -101,10 +101,6 @@ class GLMNet(nn.Module):
             return projected
 
         return self.classifier(projected)
-    
-    @property
-    def out_dim(self):
-        return self.emb_dim//2
 
 
 def standard_scale_features(X, scaler=None, return_scaler=False):
