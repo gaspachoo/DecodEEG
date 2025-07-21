@@ -28,5 +28,9 @@ Example usage:
 ```bash
 python multi_inference.py \
   --eeg example.npy \
+  --concept 0 --repetition 0 --window 0 \
   --checkpoint_dirs ckpt_color ckpt_face ckpt_human ckpt_label ckpt_obj_number
 ```
+
+The `--concept`, `--repetition` and `--window` arguments select which slice of a
+multi-dimensional EEG array to process. They default to `0` if omitted.
