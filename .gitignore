@@ -1,15 +1,13 @@
 # Folders
 wandb/
 data/
-!data/
-!data/video_latents/
-!data/video_latents/**
 checkpoints/
 __pycache__/
 ClassificationResults/
 stable-diffusion-v1-4/
 outputs/
 gifs/
+VideoTuna/
 
 # Files types
 *.pt
