@@ -98,7 +98,10 @@ def predict_text(
 
 def main() -> None:
     p = argparse.ArgumentParser(description="Run multiple GLMNet models on one EEG window")
-    p.add_argument("--eeg", required=True, help="Path to EEG numpy file (C,T)")
+    p.add_argument("--eeg", required=True, help="Path to EEG numpy file (concept, repetition, window, C, T)")
+    p.add_argument("--concept", type=int, default=0, help="Concept index to load")
+    p.add_argument("--repetition", type=int, default=0, help="Repetition index to load")
+    p.add_argument("--window", type=int, default=0, help="Window index to load")
     p.add_argument(
         "--checkpoint_dirs", nargs=5, required=True,
         help="Five GLMNet checkpoint directories"
@@ -111,7 +114,8 @@ def main() -> None:
     p.add_argument("--device", default="cpu")
     args = p.parse_args()
 
-    eeg = np.load(args.eeg)
+    eeg_all = np.load(args.eeg)
+    eeg = eeg_all[args.concept, args.repetition, args.window]
     channels, time_len = eeg.shape
 
     models = []
