@@ -41,5 +41,8 @@ often across the windows is kept and a confidence score is reported.
 `color_binary` is a simplified version of the original `color` labels. It maps
 any label other than `0` to the value `1`, indicating that one color dominates
 the image. Label `0` still represents videos with many colors. Use
-`--category color_binary` when training to enable this behaviour.
+`--category color_binary` when training to enable this behaviour. If a file
+named `All_video_color_binary.npy` is not present in `--label_dir`, the training
+script falls back to `All_video_color.npy` and performs the conversion at
+runtime.
 
