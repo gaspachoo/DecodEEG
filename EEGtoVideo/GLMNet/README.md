@@ -50,3 +50,11 @@ When training with `--category color`, samples tagged as `0` are discarded and
 the remaining color IDs (1-6) are shifted down to 0-5.  `label_mappings.json`
 lists the updated names for these six classes.
 
+## Cluster-specific label training
+
+For the `label` category you can focus on a single label cluster by passing
+`--cluster <idx>` to `train_glmnet.py`. The script loads
+`All_video_label_cluster.npy` from `--label_dir` and filters the dataset to the
+selected cluster before training.  Within that subset, the original label IDs
+are remapped to a contiguous range starting at zero.
+
