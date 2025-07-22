@@ -8,6 +8,10 @@
         "5": "white",
         "6": "gray"
     },
+    "color_binary": {
+        "0": "many colors",
+        "1": "dominant color"
+    },
     "face_appearance": {
         "0": "no face visible",
         "1": "face visible"

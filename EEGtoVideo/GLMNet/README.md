@@ -35,3 +35,11 @@ python multi_inference.py \
 The script now evaluates all seven windows corresponding to the selected
 `concept` and `repetition`.  For each model the label occurring most
 often across the windows is kept and a confidence score is reported.
+
+## Binary color category
+
+`color_binary` is a simplified version of the original `color` labels. It maps
+any label other than `0` to the value `1`, indicating that one color dominates
+the image. Label `0` still represents videos with many colors. Use
+`--category color_binary` when training to enable this behaviour.
+
