@@ -124,13 +124,18 @@ def main():
         raw.reshape(-1, raw.shape[-2], raw.shape[-1])
     ).reshape(*raw.shape[:4], raw.shape[-2], -1)
     
-    labels_raw = np.load(f'{args.label_dir}/All_video_{args.category}.npy')                       # (7,40)
+    label_path = os.path.join(args.label_dir, f"All_video_{args.category}.npy")
+  
+    if args.category == "color_binary" and not os.path.exists(label_path):
+        # Fallback to the multi-class color labels and binarize later
+        label_path = os.path.join(args.label_dir, "All_video_color.npy")
+    labels_raw = np.load(label_path)  # expected shape: (7, 40)
     if args.category == "color":
         keep_mask = labels_raw[0] != 0
         labels_raw = labels_raw[:, keep_mask] - 1
         raw = raw[:, keep_mask]
         feat = feat[:, keep_mask]
-
+        
     unique_labels, counts_labels = np.unique(labels_raw, return_counts=True)
     label_distribution = {int(u): int(c) for u, c in zip(unique_labels, counts_labels)}
     print("Label distribution:", label_distribution)
