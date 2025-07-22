@@ -43,7 +43,21 @@ def parse_args():
     p = argparse.ArgumentParser()
     p.add_argument("--raw_dir",  default="./data/Preprocessing/Segmented_500ms_sw", help="directory with .npy files")
     p.add_argument("--label_dir", default="./data/meta_info", help="Label file")
-    p.add_argument("--category", default="label_cluster",choices=['color', 'face_appearance', 'human_appearance','label_cluster','label','obj_number','optical_flow_score'], help="Label file")
+    p.add_argument(
+        "--category",
+        default="label_cluster",
+        choices=[
+            "color",
+            "color_binary",
+            "face_appearance",
+            "human_appearance",
+            "label_cluster",
+            "label",
+            "obj_number",
+            "optical_flow_score",
+        ],
+        help="Label file",
+    )
     p.add_argument("--save_dir", default="./EEGtoVideo/checkpoints/glmnet")
     p.add_argument("--epochs",   type=int, default=500)
     p.add_argument("--bs",       type=int, default=100)
@@ -73,6 +87,9 @@ def format_labels(labels: np.ndarray, category:str) -> np.ndarray:
     match category:
         case "color" | "face_appearance" | "human_appearance" | "label_cluster":
             return labels.astype(np.int64)
+        case "color_binary":
+            # Collapse all non-zero colors into the dominant color class
+            return (labels != 0).astype(np.int64)
         case "label" | "obj_number" :
             labels = labels-1
             return labels.astype(np.int64)
@@ -80,7 +97,9 @@ def format_labels(labels: np.ndarray, category:str) -> np.ndarray:
             threshold = 1.799
             return (labels > threshold).astype(np.int64)
         case _:
-            raise ValueError(f"Unknown category: {category}. Must be one of: color, face_appearance, human_appearance, object, label_cluster, label, obj_number, optical_flow_score.")
+            raise ValueError(
+                f"Unknown category: {category}. Must be one of: color, color_binary, face_appearance, human_appearance, object, label_cluster, label, obj_number, optical_flow_score."
+            )
 # ------------------------------ main -------------------------------------
 def main():
     args = parse_args()

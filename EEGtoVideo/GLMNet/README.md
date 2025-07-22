@@ -34,3 +34,10 @@ python multi_inference.py \
 
 The `--concept`, `--repetition` and `--window` arguments select which slice of a
 multi-dimensional EEG array to process. They default to `0` if omitted.
+
+## Binary color category
+
+`color_binary` is a simplified version of the original `color` labels. It maps
+any label other than `0` to the value `1`, indicating that one color dominates
+the image. Label `0` still represents videos with many colors. Use
+`--category color_binary` when training to enable this behaviour.
