@@ -70,22 +70,24 @@ def parse_args():
 
 def reshape_labels(labels: np.ndarray, n_win: int) -> np.ndarray:
     """Expand labels to match the EEG window dimension."""
-    if labels.shape[1] == 40:
+    if labels.ndim == 2:
+        num_concepts = labels.shape[1]
         labels = labels[..., None, None]
         labels = np.repeat(labels, 5, axis=2)
     else:
-        assert labels.shape[1] == 200, "Labels must be (7,40,200) or (7,40)"
-        labels = labels.reshape(-1, 40, 5)[..., None]
+        assert labels.ndim == 3 and labels.shape[2] % 5 == 0
+        num_concepts = labels.shape[1]
+        labels = labels.reshape(7, num_concepts, 5, -1)[..., None]
 
     labels = np.repeat(labels, n_win, axis=3)
-    assert (
-        labels.shape[:3] == (7, 40, 5) and labels.shape[3] == n_win
-    ), "Label shape mismatch after expansion"
+    assert labels.shape[0] == 7 and labels.shape[2] == 5 and labels.shape[3] == n_win
     return labels
 
 def format_labels(labels: np.ndarray, category:str) -> np.ndarray:
     match category:
-        case "color" | "face_appearance" | "human_appearance" | "label_cluster":
+        case "color":
+            return labels.astype(np.int64)
+        case "face_appearance" | "human_appearance" | "label_cluster":
             return labels.astype(np.int64)
         case "color_binary":
             # Collapse all non-zero colors into the dominant color class
@@ -123,6 +125,12 @@ def main():
     ).reshape(*raw.shape[:4], raw.shape[-2], -1)
     
     labels_raw = np.load(f'{args.label_dir}/All_video_{args.category}.npy')                       # (7,40)
+    if args.category == "color":
+        keep_mask = labels_raw[0] != 0
+        labels_raw = labels_raw[:, keep_mask] - 1
+        raw = raw[:, keep_mask]
+        feat = feat[:, keep_mask]
+
     unique_labels, counts_labels = np.unique(labels_raw, return_counts=True)
     label_distribution = {int(u): int(c) for u, c in zip(unique_labels, counts_labels)}
     print("Label distribution:", label_distribution)

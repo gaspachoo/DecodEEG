@@ -43,3 +43,7 @@ any label other than `0` to the value `1`, indicating that one color dominates
 the image. Label `0` still represents videos with many colors. Use
 `--category color_binary` when training to enable this behaviour.
 
+When training with `--category color`, samples tagged as `0` are discarded and
+the remaining color IDs (1-6) are shifted down to 0-5.  `label_mappings.json`
+lists the updated names for these six classes.
+
