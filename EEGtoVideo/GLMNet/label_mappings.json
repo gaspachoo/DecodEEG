@@ -1,12 +1,11 @@
 {
     "color": {
-        "0": "many colors",
-        "1": "red",
-        "2": "green",
-        "3": "blue",
-        "4": "yellow",
-        "5": "white",
-        "6": "gray"
+        "0": "red",
+        "1": "green",
+        "2": "blue",
+        "3": "yellow",
+        "4": "white",
+        "5": "gray"
     },
     "color_binary": {
         "0": "many colors",

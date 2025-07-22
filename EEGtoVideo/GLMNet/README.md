@@ -46,3 +46,7 @@ named `All_video_color_binary.npy` is not present in `--label_dir`, the training
 script falls back to `All_video_color.npy` and performs the conversion at
 runtime.
 
+When training with `--category color`, samples tagged as `0` are discarded and
+the remaining color IDs (1-6) are shifted down to 0-5.  `label_mappings.json`
+lists the updated names for these six classes.
+
