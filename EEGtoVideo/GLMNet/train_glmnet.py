@@ -70,17 +70,17 @@ def parse_args():
 
 def reshape_labels(labels: np.ndarray, n_win: int) -> np.ndarray:
     """Expand labels to match the EEG window dimension."""
-    if labels.ndim == 2:
-        num_concepts = labels.shape[1]
+    if labels.shape[1] == 40:
         labels = labels[..., None, None]
         labels = np.repeat(labels, 5, axis=2)
     else:
-        assert labels.ndim == 3 and labels.shape[2] % 5 == 0
-        num_concepts = labels.shape[1]
-        labels = labels.reshape(7, num_concepts, 5, -1)[..., None]
+        assert labels.shape[1] == 200, "Labels must be (7,40,200) or (7,40)"
+        labels = labels.reshape(-1, 40, 5)[..., None]
 
     labels = np.repeat(labels, n_win, axis=3)
-    assert labels.shape[0] == 7 and labels.shape[2] == 5 and labels.shape[3] == n_win
+    assert (
+        labels.shape[:3] == (7, 40, 5) and labels.shape[3] == n_win
+    ), "Label shape mismatch after expansion"
     return labels
 
 def format_labels(labels: np.ndarray, category:str) -> np.ndarray:
@@ -124,32 +124,53 @@ def main():
         raw.reshape(-1, raw.shape[-2], raw.shape[-1])
     ).reshape(*raw.shape[:4], raw.shape[-2], -1)
     
+    n_blocks, n_concepts, n_rep, n_win, C, T = raw.shape  # 7, 40, 5, ...
+
+    raw  = raw.reshape(n_blocks, n_concepts * n_rep, n_win, C, T)      # (7, 200, …)
+    feat = feat.reshape(n_blocks, n_concepts * n_rep, n_win, C, -1)    # (7, 200, …)
+
     label_path = os.path.join(args.label_dir, f"All_video_{args.category}.npy")
-  
     if args.category == "color_binary" and not os.path.exists(label_path):
-        # Fallback to the multi-class color labels and binarize later
         label_path = os.path.join(args.label_dir, "All_video_color.npy")
-    labels_raw = np.load(label_path)  # expected shape: (7, 40)
+
+    labels_raw = np.load(label_path)                # (7, 40) ou (7, 200)
+    if labels_raw.shape[1] == n_concepts:           # encore au niveau concept
+        labels_raw = np.repeat(labels_raw[:, :, None], n_rep, axis=2) \
+                        .reshape(n_blocks, n_concepts * n_rep)         # → (7, 200)
+
     if args.category == "color":
-        keep_mask = labels_raw[0] != 0
-        labels_raw = labels_raw[:, keep_mask] - 1
-        raw = raw[:, keep_mask]
-        feat = feat[:, keep_mask]
-        
-    unique_labels, counts_labels = np.unique(labels_raw, return_counts=True)
-    label_distribution = {int(u): int(c) for u, c in zip(unique_labels, counts_labels)}
-    print("Label distribution:", label_distribution)
+        mask_2d   = labels_raw != 0                 # (7, 200) bool
+    else:
+        mask_2d   = np.ones_like(labels_raw, dtype=bool)
 
-    n_win = raw.shape[3]
-    time_len = raw.shape[-1]
-    num_channels = raw.shape[-2]
+    raw        = raw.reshape(-1, n_win, C, T)       # (7*200, …)
+    feat       = feat.reshape(-1, n_win, C, feat.shape[-1])
+    labels_flat= labels_raw.reshape(-1)             # (7*200,)
+
+    raw        = raw[mask_2d.reshape(-1)]
+    feat       = feat[mask_2d.reshape(-1)]
+    labels_flat= labels_flat[mask_2d.reshape(-1)] - (1 if args.category == "color" else 0)
     
-    labels = format_labels(reshape_labels(labels_raw, n_win), args.category)
-    num_unique_labels = len(np.unique(labels))
+    def expand_labels_flat(labels_1d: np.ndarray, n_win: int) -> np.ndarray:
+        """(N_vid,) → (N_vid, n_win)"""
+        return np.repeat(labels_1d[:, None], n_win, axis=1)
 
+    labels = format_labels(expand_labels_flat(labels_flat, n_win), args.category)
+    # raw, feat : (N_vid, n_win, C, …)   labels : (N_vid, n_win)
+
+
+    unique_labels, counts_labels = np.unique(labels, return_counts=True)
+    num_unique_labels = len(unique_labels)
+    label_final_distribution = {int(u): int(c) for u, c in zip(unique_labels, counts_labels)}
+    print("Label distribution after formating:", label_final_distribution)
+
+    num_channels = raw.shape[-2]      # C
+    time_len     = raw.shape[-1]      # T
+    feat_dim     = feat.shape[-1]
+    
     # Flatten data and split into train/val/test
     X_all = raw.reshape(-1, num_channels, time_len)
-    F_all = feat.reshape(-1, num_channels, 5)
+    F_all = feat.reshape(-1, num_channels, feat_dim)
     y_all = labels.reshape(-1)
 
 
