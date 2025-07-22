@@ -99,11 +99,12 @@ def predict_text(
 def main() -> None:
     p = argparse.ArgumentParser(description="Run multiple GLMNet models on one EEG window")
     p.add_argument("--eeg", required=True, help="Path to EEG numpy file (concept, repetition, window, C, T)")
+    p.add_argument("--block", type=int, default=0, help="Block index to load")
     p.add_argument("--concept", type=int, default=0, help="Concept index to load")
     p.add_argument("--repetition", type=int, default=0, help="Repetition index to load")
     p.add_argument("--window", type=int, default=0, help="Window index to load")
     p.add_argument(
-        "--checkpoint_dirs", nargs=5, required=True,
+        "--checkpoint_dirs", nargs=1, required=True,
         help="Five GLMNet checkpoint directories"
     )
     p.add_argument(
@@ -111,11 +112,12 @@ def main() -> None:
         default=os.path.join(os.path.dirname(__file__), "label_mappings.json"),
         help="Path to label_mappings.json"
     )
-    p.add_argument("--device", default="cpu")
+    p.add_argument("--device", default="cuda")
     args = p.parse_args()
 
     eeg_all = np.load(args.eeg)
-    eeg = eeg_all[args.concept, args.repetition, args.window]
+    print(f"Loaded EEG data with shape {eeg_all.shape}")
+    eeg = eeg_all[args.block, args.concept, args.repetition, args.window]
     channels, time_len = eeg.shape
 
     models = []
