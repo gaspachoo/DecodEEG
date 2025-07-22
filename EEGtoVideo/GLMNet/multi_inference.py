@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
 """Run multiple GLMNet models on a single EEG example.
 
-This script loads five GLMNet checkpoints and converts their
-predictions into text using ``label_mappings.json``.  The textual
-outputs are concatenated to form a descriptive phrase.
+This script loads several GLMNet checkpoints and converts their
+predictions into text using ``label_mappings.json``.  For each model we
+evaluate all seven windows of the EEG sample and keep the label that
+appears most often.  The textual outputs are concatenated to form a
+descriptive phrase and a confidence score is reported for each label.
 """
 
 import argparse
@@ -82,27 +84,34 @@ def predict_text(
     categories: List[str],
     label_map: Dict[str, Dict[int, str]],
     device: str,
-) -> str:
-    """Generate a phrase by applying each model to the EEG sample."""
+    ) -> tuple[str, List[float]]:
+    """Generate a phrase from all EEG windows using majority voting."""
     parts = []
+    confidences = []
     for mdl, scaler, stats, cat in zip(models, scalers, stats_list, categories):
-        x_raw, x_feat = prepare_input(eeg, stats, scaler)
-        x_raw = x_raw.to(device)
-        x_feat = x_feat.to(device)
-        with torch.no_grad():
-            logits = mdl(x_raw, x_feat)
-            pred = int(logits.argmax(dim=-1).item())
-        parts.append(index_to_text(cat, pred, label_map))
-    return " ".join(parts)
+        preds = []
+        for win in eeg:
+            x_raw, x_feat = prepare_input(win, stats, scaler)
+            x_raw = x_raw.to(device)
+            x_feat = x_feat.to(device)
+            with torch.no_grad():
+                logits = mdl(x_raw, x_feat)
+                preds.append(int(logits.argmax(dim=-1).item()))
+        values, counts = np.unique(preds, return_counts=True)
+        best_idx = counts.argmax()
+        majority = int(values[best_idx])
+        conf = counts[best_idx] / len(preds)
+        parts.append(index_to_text(cat, majority, label_map))
+        confidences.append(conf)
+    return " ".join(parts), confidences
 
 
 def main() -> None:
-    p = argparse.ArgumentParser(description="Run multiple GLMNet models on one EEG window")
+    p = argparse.ArgumentParser(description="Run multiple GLMNet models on EEG windows")
     p.add_argument("--eeg", required=True, help="Path to EEG numpy file (concept, repetition, window, C, T)")
     p.add_argument("--block", type=int, default=0, help="Block index to load")
     p.add_argument("--concept", type=int, default=0, help="Concept index to load")
     p.add_argument("--repetition", type=int, default=0, help="Repetition index to load")
-    p.add_argument("--window", type=int, default=0, help="Window index to load")
     p.add_argument(
         "--checkpoint_dirs", nargs=1, required=True,
         help="Five GLMNet checkpoint directories"
@@ -117,8 +126,8 @@ def main() -> None:
 
     eeg_all = np.load(args.eeg)
     print(f"Loaded EEG data with shape {eeg_all.shape}")
-    eeg = eeg_all[args.block, args.concept, args.repetition, args.window]
-    channels, time_len = eeg.shape
+    eeg = eeg_all[args.block, args.concept, args.repetition]
+    channels, time_len = eeg.shape[-2], eeg.shape[-1]
 
     models = []
     scalers = []
@@ -132,7 +141,7 @@ def main() -> None:
     label_map = load_label_mappings(args.mapping_path)
     categories = [get_category(c) for c in args.checkpoint_dirs]
 
-    phrase = predict_text(
+    phrase, confs = predict_text(
         eeg,
         models,
         scalers,
@@ -142,6 +151,7 @@ def main() -> None:
         args.device,
     )
     print(phrase)
+    print("Confidences:", [f"{c:.2f}" for c in confs])
 
 
 if __name__ == "__main__":
