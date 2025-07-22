@@ -28,12 +28,13 @@ Example usage:
 ```bash
 python multi_inference.py \
   --eeg example.npy \
-  --concept 0 --repetition 0 --window 0 \
+  --concept 0 --repetition 0 \
   --checkpoint_dirs ckpt_color ckpt_face ckpt_human ckpt_label ckpt_obj_number
 ```
 
-The `--concept`, `--repetition` and `--window` arguments select which slice of a
-multi-dimensional EEG array to process. They default to `0` if omitted.
+The script now evaluates all seven windows corresponding to the selected
+`concept` and `repetition`.  For each model the label occurring most
+often across the windows is kept and a confidence score is reported.
 
 ## Binary color category
 
@@ -41,3 +42,4 @@ multi-dimensional EEG array to process. They default to `0` if omitted.
 any label other than `0` to the value `1`, indicating that one color dominates
 the image. Label `0` still represents videos with many colors. Use
 `--category color_binary` when training to enable this behaviour.
+
