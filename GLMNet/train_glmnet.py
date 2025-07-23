@@ -222,6 +222,7 @@ def main():
     def concat_subjects(names: list[str]):
         X_list, F_list, y_list = [], [], []
         for n in names:
+            print("Processing subject:", n)
             xr, xf, yl = load_subject(n)
             X_list.append(xr)
             F_list.append(xf)
@@ -230,6 +231,8 @@ def main():
             return np.empty((0, n_win, C, T)), np.empty((0, n_win, C, feat_dim)), np.empty((0, n_win), dtype=np.int64)
         return np.concatenate(X_list), np.concatenate(F_list), np.concatenate(y_list)
 
+    print("Concatenating subjects...")
+    
     X_train, F_train, y_train = concat_subjects(train_subj)
     X_val, F_val, y_val = concat_subjects(val_subj)
     X_test, F_test, y_test = concat_subjects(test_subj)

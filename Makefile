@@ -4,7 +4,7 @@
 PYTHON ?= python
 
 # Training script relative path
-TRAIN_SCRIPT := EEGtoVideo/GLMNet/train_glmnet.py
+TRAIN_SCRIPT := GLMNet/train_glmnet.py
 
 # Categories excluding raw label which is trained per cluster
 CATEGORIES := color color_binary face_appearance human_appearance label_cluster obj_number optical_flow_score
