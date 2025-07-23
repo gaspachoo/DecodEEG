@@ -11,7 +11,8 @@ descriptive phrase and a confidence score is reported for each label.
 import argparse
 import json
 import os
-from typing import Dict, List
+import warnings
+from typing import Dict, List, Tuple
 
 import numpy as np
 import torch
@@ -76,34 +77,27 @@ def index_to_text(category: str, idx: int, label_map: Dict[str, Dict[int, str]])
     return label_map.get(category, {}).get(idx, str(idx))
 
 
-def predict_text(
+def majority_vote(
     eeg: np.ndarray,
-    models: List[GLMNet],
-    scalers,
-    stats_list,
-    categories: List[str],
-    label_map: Dict[str, Dict[int, str]],
+    model: GLMNet,
+    scaler,
+    stats,
     device: str,
-    ) -> tuple[str, List[float]]:
-    """Generate a phrase from all EEG windows using majority voting."""
-    parts = []
-    confidences = []
-    for mdl, scaler, stats, cat in zip(models, scalers, stats_list, categories):
-        preds = []
-        for win in eeg:
-            x_raw, x_feat = prepare_input(win, stats, scaler)
-            x_raw = x_raw.to(device)
-            x_feat = x_feat.to(device)
-            with torch.no_grad():
-                logits = mdl(x_raw, x_feat)
-                preds.append(int(logits.argmax(dim=-1).item()))
-        values, counts = np.unique(preds, return_counts=True)
-        best_idx = counts.argmax()
-        majority = int(values[best_idx])
-        conf = counts[best_idx] / len(preds)
-        parts.append(index_to_text(cat, majority, label_map))
-        confidences.append(conf)
-    return " ".join(parts), confidences
+) -> Tuple[int, float]:
+    """Return the most common prediction index and its confidence."""
+    preds = []
+    for win in eeg:
+        x_raw, x_feat = prepare_input(win, stats, scaler)
+        x_raw = x_raw.to(device)
+        x_feat = x_feat.to(device)
+        with torch.no_grad():
+            logits = model(x_raw, x_feat)
+            preds.append(int(logits.argmax(dim=-1).item()))
+    values, counts = np.unique(preds, return_counts=True)
+    best_idx = counts.argmax()
+    majority = int(values[best_idx])
+    conf = counts[best_idx] / len(preds)
+    return majority, conf
 
 
 def main() -> None:
@@ -113,8 +107,9 @@ def main() -> None:
     p.add_argument("--concept", type=int, default=0, help="Concept index to load")
     p.add_argument("--repetition", type=int, default=0, help="Repetition index to load")
     p.add_argument(
-        "--checkpoint_dirs", nargs=1, required=True,
-        help="Five GLMNet checkpoint directories"
+        "--checkpoint_root",
+        required=True,
+        help="Directory containing all GLMNet checkpoints"
     )
     p.add_argument(
         "--mapping_path",
@@ -129,29 +124,111 @@ def main() -> None:
     eeg = eeg_all[args.block, args.concept, args.repetition]
     channels, time_len = eeg.shape[-2], eeg.shape[-1]
 
-    models = []
-    scalers = []
-    stats_list = []
-    for ckpt in args.checkpoint_dirs:
-        model, scaler, stats = load_model(ckpt, channels, time_len, args.device)
-        models.append(model)
-        scalers.append(scaler)
-        stats_list.append(stats)
+    ckpt_dirs = {
+        get_category(d): os.path.join(args.checkpoint_root, d)
+        for d in os.listdir(args.checkpoint_root)
+        if os.path.isdir(os.path.join(args.checkpoint_root, d))
+    }
+
+    required = ["label_cluster"] + [f"label_cluster{i}" for i in range(9)]
+    for cat in required:
+        if cat not in ckpt_dirs:
+            raise FileNotFoundError(
+                f"Required checkpoint '{cat}' not found in {args.checkpoint_root}"
+            )
+
+    optional = [
+        "color_binary",
+        "color",
+        "face_appearance",
+        "human_appearance",
+        "obj_number",
+        "optical_flow_score",
+    ]
+    for cat in optional:
+        if cat not in ckpt_dirs and cat != "color":
+            warnings.warn(f"Checkpoint for {cat} not found - skipping")
 
     label_map = load_label_mappings(args.mapping_path)
-    categories = [get_category(c) for c in args.checkpoint_dirs]
 
-    phrase, confs = predict_text(
+    def load(cat: str):
+        path = ckpt_dirs[cat]
+        return load_model(path, channels, time_len, args.device)
+
+    models = {}
+    scalers = {}
+    stats = {}
+    for cat in required + [c for c in optional if c in ckpt_dirs]:
+        mdl, sc, st = load(cat)
+        models[cat] = mdl
+        scalers[cat] = sc
+        stats[cat] = st
+
+    phrase_parts = []
+    confidences = []
+
+    if "color_binary" in models:
+        idx, conf = majority_vote(eeg, models["color_binary"], scalers["color_binary"], stats["color_binary"], args.device)
+        confidences.append(conf)
+        if idx == 1:
+            if "color" not in models:
+                raise FileNotFoundError("Color checkpoint required when dominant color is predicted")
+            idx_col, conf_col = majority_vote(
+                eeg,
+                models["color"],
+                scalers["color"],
+                stats["color"],
+                args.device,
+            )
+            phrase_parts.append(index_to_text("color", idx_col, label_map))
+            confidences.append(conf_col)
+        else:
+            phrase_parts.append(index_to_text("color_binary", idx, label_map))
+
+    if "face_appearance" in models:
+        idx, conf = majority_vote(eeg, models["face_appearance"], scalers["face_appearance"], stats["face_appearance"], args.device)
+        phrase_parts.append(index_to_text("face_appearance", idx, label_map))
+        confidences.append(conf)
+
+    if "human_appearance" in models:
+        idx, conf = majority_vote(eeg, models["human_appearance"], scalers["human_appearance"], stats["human_appearance"], args.device)
+        phrase_parts.append(index_to_text("human_appearance", idx, label_map))
+        confidences.append(conf)
+
+    idx_cluster, conf_cluster = majority_vote(
         eeg,
-        models,
-        scalers,
-        stats_list,
-        categories,
-        label_map,
+        models["label_cluster"],
+        scalers["label_cluster"],
+        stats["label_cluster"],
         args.device,
     )
+    phrase_parts.append(index_to_text("label_cluster", idx_cluster, label_map))
+    confidences.append(conf_cluster)
+
+    label_cat = f"label_cluster{idx_cluster}"
+    idx_label, conf_label = majority_vote(
+        eeg,
+        models[label_cat],
+        scalers[label_cat],
+        stats[label_cat],
+        args.device,
+    )
+    phrase_parts.append(index_to_text("label", idx_label, label_map))
+    confidences.append(conf_label)
+
+    if "obj_number" in models:
+        idx, conf = majority_vote(eeg, models["obj_number"], scalers["obj_number"], stats["obj_number"], args.device)
+        phrase_parts.append(index_to_text("obj_number", idx, label_map))
+        confidences.append(conf)
+
+    if "optical_flow_score" in models:
+        idx, conf = majority_vote(eeg, models["optical_flow_score"], scalers["optical_flow_score"], stats["optical_flow_score"], args.device)
+        phrase_parts.append(index_to_text("optical_flow_score", idx, label_map))
+        confidences.append(conf)
+
+    phrase = " ".join(phrase_parts)
     print(phrase)
-    print("Confidences:", [f"{c:.2f}" for c in confs])
+    print("Confidences:", [f"{c:.2f}" for c in confidences])
 
 
 if __name__ == "__main__":

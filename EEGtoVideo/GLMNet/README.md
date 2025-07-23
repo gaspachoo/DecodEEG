@@ -29,7 +29,7 @@ Example usage:
 python multi_inference.py \
   --eeg example.npy \
   --concept 0 --repetition 0 \
-  --checkpoint_dirs ckpt_color ckpt_face ckpt_human ckpt_label ckpt_obj_number
+  --checkpoint_root ./EEGtoVideo/checkpoints/glmnet/sub3
 ```
 
 The script now evaluates all seven windows corresponding to the selected
