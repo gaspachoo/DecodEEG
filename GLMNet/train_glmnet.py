@@ -15,7 +15,7 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 
-from EEGtoVideo.GLMNet.modules.utils_glmnet import (
+from GLMNet.modules.utils_glmnet import (
     GLMNet,
     standard_scale_features,
     compute_raw_stats,
@@ -23,7 +23,7 @@ from EEGtoVideo.GLMNet.modules.utils_glmnet import (
     load_scaler,
     load_raw_stats,
 )
-from EEGtoVideo.GLMNet.modules.models_paper import mlpnet
+from GLMNet.modules.models_paper import mlpnet
 
 
 # -------- W&B -------------------------------------------------------------

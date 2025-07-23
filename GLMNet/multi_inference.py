@@ -17,14 +17,14 @@ from typing import Dict, List, Tuple
 import numpy as np
 import torch
 
-from EEGtoVideo.GLMNet.modules.utils_glmnet import (
+from GLMNet.modules.utils_glmnet import (
     GLMNet,
     load_scaler,
     load_raw_stats,
     normalize_raw,
     standard_scale_features,
 )
-from EEGtoVideo.GLMNet.modules.models_paper import mlpnet
+from GLMNet.modules.models_paper import mlpnet
 
 
 OCCIPITAL_IDX = list(range(50, 62))
