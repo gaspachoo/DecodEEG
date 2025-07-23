@@ -186,15 +186,28 @@ def main() -> None:
         scalers[cat] = sc
         stats[cat] = st
 
-    phrase_parts = []
     confidences = []
+    # Descriptive pieces collected from each category
+    color_desc = None
+    face_desc = None
+    human_desc = None
+    obj_desc = None
+    flow_desc = None
 
     if "color_binary" in models:
-        idx, conf = majority_vote(eeg, models["color_binary"], scalers["color_binary"], stats["color_binary"], args.device)
+        idx, conf = majority_vote(
+            eeg,
+            models["color_binary"],
+            scalers["color_binary"],
+            stats["color_binary"],
+            args.device,
+        )
         confidences.append(conf)
         if idx == 1:
             if "color" not in models:
-                raise FileNotFoundError("Color checkpoint required when dominant color is predicted")
+                raise FileNotFoundError(
+                    "Color checkpoint required when dominant color is predicted"
+                )
             idx_col, conf_col = majority_vote(
                 eeg,
                 models["color"],
@@ -202,19 +215,31 @@ def main() -> None:
                 stats["color"],
                 args.device,
             )
-            phrase_parts.append(index_to_text("color", idx_col, label_map))
+            color_desc = f"with dominant color {index_to_text('color', idx_col, label_map)}"
             confidences.append(conf_col)
         else:
-            phrase_parts.append(index_to_text("color_binary", idx, label_map))
+            color_desc = index_to_text("color_binary", idx, label_map)
 
     if "face_appearance" in models:
-        idx, conf = majority_vote(eeg, models["face_appearance"], scalers["face_appearance"], stats["face_appearance"], args.device)
-        phrase_parts.append(index_to_text("face_appearance", idx, label_map))
+        idx, conf = majority_vote(
+            eeg,
+            models["face_appearance"],
+            scalers["face_appearance"],
+            stats["face_appearance"],
+            args.device,
+        )
+        face_desc = index_to_text("face_appearance", idx, label_map)
         confidences.append(conf)
 
     if "human_appearance" in models:
-        idx, conf = majority_vote(eeg, models["human_appearance"], scalers["human_appearance"], stats["human_appearance"], args.device)
-        phrase_parts.append(index_to_text("human_appearance", idx, label_map))
+        idx, conf = majority_vote(
+            eeg,
+            models["human_appearance"],
+            scalers["human_appearance"],
+            stats["human_appearance"],
+            args.device,
+        )
+        human_desc = index_to_text("human_appearance", idx, label_map)
         confidences.append(conf)
 
     idx_cluster, conf_cluster = majority_vote(
@@ -224,7 +249,7 @@ def main() -> None:
         stats["label_cluster"],
         args.device,
     )
-    phrase_parts.append(index_to_text("label_cluster", idx_cluster, label_map))
+    cluster_text = index_to_text("label_cluster", idx_cluster, label_map)
     confidences.append(conf_cluster)
 
     label_cat = f"label_cluster{idx_cluster}"
@@ -235,20 +260,42 @@ def main() -> None:
         stats[label_cat],
         args.device,
     )
-    phrase_parts.append(index_to_text("label", idx_label, label_map, cluster_idx=idx_cluster))
+    label_text = index_to_text("label", idx_label, label_map, cluster_idx=idx_cluster)
     confidences.append(conf_label)
 
     if "obj_number" in models:
-        idx, conf = majority_vote(eeg, models["obj_number"], scalers["obj_number"], stats["obj_number"], args.device)
-        phrase_parts.append(index_to_text("obj_number", idx, label_map))
+        idx, conf = majority_vote(
+            eeg,
+            models["obj_number"],
+            scalers["obj_number"],
+            stats["obj_number"],
+            args.device,
+        )
+        obj_desc = index_to_text("obj_number", idx, label_map)
         confidences.append(conf)
 
     if "optical_flow_score" in models:
-        idx, conf = majority_vote(eeg, models["optical_flow_score"], scalers["optical_flow_score"], stats["optical_flow_score"], args.device)
-        phrase_parts.append(index_to_text("optical_flow_score", idx, label_map))
+        idx, conf = majority_vote(
+            eeg,
+            models["optical_flow_score"],
+            scalers["optical_flow_score"],
+            stats["optical_flow_score"],
+            args.device,
+        )
+        flow_desc = index_to_text("optical_flow_score", idx, label_map)
         confidences.append(conf)
 
-    phrase = " ".join(phrase_parts)
+    phrase = f"A {cluster_text} which is more specifically {label_text}"
+    if human_desc:
+        phrase += f", {human_desc}"
+    if face_desc:
+        phrase += f", {face_desc}"
+    if obj_desc:
+        phrase += f", {obj_desc}"
+    if color_desc:
+        phrase += f", {color_desc}"
+    if flow_desc:
+        phrase += f", {flow_desc}"
     print(phrase)
     print("Confidences:", [f"{c:.2f}" for c in confidences])
 

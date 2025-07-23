@@ -246,7 +246,7 @@ def main():
     X_test = X_test.reshape(-1, C, T)
     F_test = F_test.reshape(-1, C, feat_dim)
     y_test = y_test.reshape(-1)
-
+    
     num_channels = C
     time_len = T
 
