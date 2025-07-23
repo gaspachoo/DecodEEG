@@ -234,6 +234,19 @@ def main():
     X_val, F_val, y_val = concat_subjects(val_subj)
     X_test, F_test, y_test = concat_subjects(test_subj)
 
+    # Flatten the window dimension so each row is one EEG segment
+    X_train = X_train.reshape(-1, C, T)
+    F_train = F_train.reshape(-1, C, feat_dim)
+    y_train = y_train.reshape(-1)
+
+    X_val = X_val.reshape(-1, C, T)
+    F_val = F_val.reshape(-1, C, feat_dim)
+    y_val = y_val.reshape(-1)
+
+    X_test = X_test.reshape(-1, C, T)
+    F_test = F_test.reshape(-1, C, feat_dim)
+    y_test = y_test.reshape(-1)
+    
     num_channels = C
     time_len = T
 
