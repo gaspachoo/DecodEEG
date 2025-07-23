@@ -29,6 +29,20 @@ from EEGtoVideo.GLMNet.modules.models_paper import mlpnet
 
 OCCIPITAL_IDX = list(range(50, 62))
 
+# Mapping from label cluster index to the range of original label IDs (inclusive)
+# used during cluster-specific training.
+CLUSTER_RANGES = [
+    (1, 7),   # Land Animal
+    (8, 11),  # Water Animal
+    (12, 14), # Plant
+    (15, 18), # Exercise
+    (19, 21), # Human
+    (22, 27), # Natural Scene
+    (28, 32), # Food
+    (33, 35), # Musical
+    (36, 40), # Transportation
+]
+
 def load_label_mappings(path: str) -> Dict[str, Dict[int, str]]:
     """Load textual descriptions for every label category."""
     with open(path, "r", encoding="utf-8") as f:
@@ -70,9 +84,17 @@ def get_category(path: str) -> str:
     return "_".join(parts[1:])
 
 
-def index_to_text(category: str, idx: int, label_map: Dict[str, Dict[int, str]]) -> str:
-    """Convert predicted class index to textual description."""
-    if category in {"label", "obj_number"}:
+def index_to_text(
+    category: str,
+    idx: int,
+    label_map: Dict[str, Dict[int, str]],
+    cluster_idx: int | None = None,
+) -> str:
+    """Convert predicted class index to a text label."""
+    if category == "label" and cluster_idx is not None:
+        start, _ = CLUSTER_RANGES[cluster_idx]
+        idx = start + idx
+    elif category in {"label", "obj_number"}:
         idx += 1
     return label_map.get(category, {}).get(idx, str(idx))
 
@@ -213,7 +235,7 @@ def main() -> None:
         stats[label_cat],
         args.device,
     )
-    phrase_parts.append(index_to_text("label", idx_label, label_map))
+    phrase_parts.append(index_to_text("label", idx_label, label_map, cluster_idx=idx_cluster))
     confidences.append(conf_label)
 
     if "obj_number" in models:
