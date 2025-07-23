@@ -72,7 +72,8 @@ def parse_args():
         help="Type of learning rate scheduler",
     )
     p.add_argument("--use_wandb", action="store_true")
-    p.add_argument("--subj_name", default="sub3", help="Subject name to process")
+    p.add_argument("--n_subj", type=int, default=15, help="Number of subjects to sample for train/val")
+    p.add_argument("--seed", type=int, default=0, help="Random seed for subject sampling")
     return p.parse_args()
 
 
@@ -117,11 +118,29 @@ def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using device: {device}")
 
+    rng = np.random.default_rng(args.seed)
+    all_subj = sorted(
+        f[:-4] for f in os.listdir(args.raw_dir) if f.startswith("sub") and f.endswith(".npy")
+    )
+    if args.n_subj > len(all_subj):
+        raise ValueError("Not enough subject files in raw_dir")
+    rng.shuffle(all_subj)
+    selected = all_subj[: args.n_subj]
+    train_subj = selected[:13]
+    val_subj = selected[13:15]
+    test_subj = [s for s in all_subj if s not in selected]
+
+    print("Training subjects:", train_subj)
+    print("Validation subjects:", val_subj)
+    print("Test subjects:", test_subj)
+
+    name_ids = "_".join(s.replace("sub", "") for s in train_subj)
+
     # Define saving paths
     ckpt_name = args.category
     if args.cluster is not None:
         ckpt_name += f"_cluster{args.cluster}"
-    ckpt_dir = os.path.join(args.save_dir, args.subj_name, ckpt_name)
+    ckpt_dir = os.path.join(args.save_dir, f"sub_{name_ids}", ckpt_name)
     os.makedirs(ckpt_dir, exist_ok=True)
     shallownet_path = os.path.join(ckpt_dir, "shallownet.pt")
     mlpnet_path = os.path.join(ckpt_dir, "mlpnet.pt")
@@ -129,29 +148,28 @@ def main():
     scaler_path = os.path.join(ckpt_dir, "scaler.pkl")
     glmnet_path = os.path.join(ckpt_dir, "glmnet_best.pt")
 
-    raw = np.load(os.path.join(args.raw_dir, f"{args.subj_name}.npy"))
-    # compute DE features from raw EEG windows
-    feat = mlpnet.compute_features(raw.reshape(-1, raw.shape[-2], raw.shape[-1])).reshape(
-        *raw.shape[:4], raw.shape[-2], -1
+    sample_raw = np.load(os.path.join(args.raw_dir, f"{train_subj[0]}.npy"))
+    sample_feat = mlpnet.compute_features(sample_raw.reshape(-1, sample_raw.shape[-2], sample_raw.shape[-1])).reshape(
+        *sample_raw.shape[:4], sample_raw.shape[-2], -1
     )
 
-    n_blocks, n_concepts, n_rep, n_win, C, T = raw.shape  # 7, 40, 5, ...
+    n_blocks, n_concepts, n_rep, n_win, C, T = sample_raw.shape
 
-    raw = raw.reshape(n_blocks, n_concepts * n_rep, n_win, C, T)  # (7, 200, …)
-    feat = feat.reshape(n_blocks, n_concepts * n_rep, n_win, C, -1)  # (7, 200, …)
+    sample_raw = sample_raw.reshape(n_blocks, n_concepts * n_rep, n_win, C, T)
+    sample_feat = sample_feat.reshape(n_blocks, n_concepts * n_rep, n_win, C, -1)
 
     label_path = os.path.join(args.label_dir, f"All_video_{args.category}.npy")
     if args.category == "color_binary" and not os.path.exists(label_path):
         label_path = os.path.join(args.label_dir, "All_video_color.npy")
 
-    labels_raw = np.load(label_path)  # (7, 40) ou (7, 200)
-    if labels_raw.shape[1] == n_concepts:  # encore au niveau concept
+    labels_raw = np.load(label_path)
+    if labels_raw.shape[1] == n_concepts:
         labels_raw = np.repeat(labels_raw[:, :, None], n_rep, axis=2).reshape(
             n_blocks, n_concepts * n_rep
-        )  # → (7, 200)
+        )
 
     if args.category == "color":
-        mask_2d = labels_raw != 0  # (7, 200) bool
+        mask_2d = labels_raw != 0
     else:
         mask_2d = np.ones_like(labels_raw, dtype=bool)
 
@@ -159,55 +177,78 @@ def main():
         cluster_path = os.path.join(args.label_dir, "All_video_label_cluster.npy")
         clusters = np.load(cluster_path)
         if clusters.shape[1] == n_concepts:
-            clusters = np.repeat(clusters[:, :, None], n_rep, axis=2).reshape(n_blocks, n_concepts * n_rep)
+            clusters = np.repeat(clusters[:, :, None], n_rep, axis=2).reshape(
+                n_blocks, n_concepts * n_rep
+            )
         mask_2d &= clusters == args.cluster
 
-    raw = raw.reshape(-1, n_win, C, T)  # (7*200, …)
-    feat = feat.reshape(-1, n_win, C, feat.shape[-1])
-    labels_flat = labels_raw.reshape(-1)  # (7*200,)
-
-    raw = raw[mask_2d.reshape(-1)]
-    feat = feat[mask_2d.reshape(-1)]
-    labels_flat = labels_flat[mask_2d.reshape(-1)] - (1 if args.category == "color" else 0)
+    mask_flat = mask_2d.reshape(-1)
+    labels_flat = labels_raw.reshape(-1)[mask_flat] - (
+        1 if args.category == "color" else 0
+    )
 
     def expand_labels_flat(labels_1d: np.ndarray, n_win: int) -> np.ndarray:
-        """(N_vid,) → (N_vid, n_win)"""
         return np.repeat(labels_1d[:, None], n_win, axis=1)
 
-    labels = format_labels(expand_labels_flat(labels_flat, n_win), args.category)
-    # raw, feat : (N_vid, n_win, C, …)   labels : (N_vid, n_win)
+    base_labels = format_labels(expand_labels_flat(labels_flat, n_win), args.category)
 
     if args.cluster is not None and args.category == "label":
-        uniq = np.sort(np.unique(labels))
+        uniq = np.sort(np.unique(base_labels))
         mapping = {v: i for i, v in enumerate(uniq)}
-        labels = np.vectorize(mapping.get)(labels)
+        base_labels = np.vectorize(mapping.get)(base_labels)
         print(f"Cluster {args.cluster}: mapping original labels {uniq.tolist()} -> {list(mapping.values())}")
 
-    unique_labels, counts_labels = np.unique(labels, return_counts=True)
+    unique_labels, counts_labels = np.unique(base_labels, return_counts=True)
     num_unique_labels = len(unique_labels)
     label_final_distribution = {int(u): int(c) for u, c in zip(unique_labels, counts_labels)}
     print("Label distribution after formating:", label_final_distribution)
 
-    num_channels = raw.shape[-2]  # C
-    time_len = raw.shape[-1]  # T
-    feat_dim = feat.shape[-1]
+    labels = base_labels
 
-    # Flatten data and split into train/val/test
-    X_all = raw.reshape(-1, num_channels, time_len)
-    F_all = feat.reshape(-1, num_channels, feat_dim)
-    y_all = labels.reshape(-1)
+    feat_dim = sample_feat.shape[-1]
 
-    n = len(y_all)
-    idx = np.random.permutation(n)
-    train_end = int(0.8 * n)
-    val_end = int(0.9 * n)
-    train_idx = idx[:train_end]
-    val_idx = idx[train_end:val_end]
-    test_idx = idx[val_end:]
+    def load_subject(name: str) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        subj_raw = np.load(os.path.join(args.raw_dir, f"{name}.npy"))
+        subj_feat = mlpnet.compute_features(subj_raw.reshape(-1, subj_raw.shape[-2], subj_raw.shape[-1])).reshape(
+            *subj_raw.shape[:4], subj_raw.shape[-2], -1
+        )
+        subj_raw = subj_raw.reshape(n_blocks, n_concepts * n_rep, n_win, C, T)
+        subj_feat = subj_feat.reshape(n_blocks, n_concepts * n_rep, n_win, C, -1)
+        subj_raw = subj_raw.reshape(-1, n_win, C, T)[mask_flat]
+        subj_feat = subj_feat.reshape(-1, n_win, C, feat_dim)[mask_flat]
+        subj_labels = base_labels.copy()
+        return subj_raw, subj_feat, subj_labels
 
-    X_train, F_train, y_train = X_all[train_idx], F_all[train_idx], y_all[train_idx]
-    X_val, F_val, y_val = X_all[val_idx], F_all[val_idx], y_all[val_idx]
-    X_test, F_test, y_test = X_all[test_idx], F_all[test_idx], y_all[test_idx]
+    def concat_subjects(names: list[str]):
+        X_list, F_list, y_list = [], [], []
+        for n in names:
+            xr, xf, yl = load_subject(n)
+            X_list.append(xr)
+            F_list.append(xf)
+            y_list.append(yl)
+        if not X_list:
+            return np.empty((0, n_win, C, T)), np.empty((0, n_win, C, feat_dim)), np.empty((0, n_win), dtype=np.int64)
+        return np.concatenate(X_list), np.concatenate(F_list), np.concatenate(y_list)
+
+    X_train, F_train, y_train = concat_subjects(train_subj)
+    X_val, F_val, y_val = concat_subjects(val_subj)
+    X_test, F_test, y_test = concat_subjects(test_subj)
+
+    # Flatten the window dimension so each row is one EEG segment
+    X_train = X_train.reshape(-1, C, T)
+    F_train = F_train.reshape(-1, C, feat_dim)
+    y_train = y_train.reshape(-1)
+
+    X_val = X_val.reshape(-1, C, T)
+    F_val = F_val.reshape(-1, C, feat_dim)
+    y_val = y_val.reshape(-1)
+
+    X_test = X_test.reshape(-1, C, T)
+    F_test = F_test.reshape(-1, C, feat_dim)
+    y_test = y_test.reshape(-1)
+
+    num_channels = C
+    time_len = T
 
     # Normalization parameters from training data
     raw_mean, raw_std = compute_raw_stats(X_train)
@@ -260,7 +301,7 @@ def main():
     criterion = nn.CrossEntropyLoss()
 
     if args.use_wandb:
-        wandb.init(project=PROJECT_NAME, name=f"{args.subj_name}_{ckpt_name}", config=vars(args))
+        wandb.init(project=PROJECT_NAME, name=f"sub_{name_ids}_{ckpt_name}", config=vars(args))
         wandb.watch(model, log="all")
 
     best_val = 0.0
