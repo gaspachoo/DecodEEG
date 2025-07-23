@@ -285,7 +285,7 @@ def main() -> None:
         flow_desc = index_to_text("optical_flow_score", idx, label_map)
         confidences.append(conf)
 
-    phrase = f"A {cluster_text} which is a {label_text}"
+    phrase = f"A {cluster_text} which is more specifically {label_text}"
     if human_desc:
         phrase += f", {human_desc}"
     if face_desc:
