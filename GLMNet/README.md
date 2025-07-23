@@ -35,6 +35,9 @@ python multi_inference.py \
 The script now evaluates all seven windows corresponding to the selected
 `concept` and `repetition`.  For each model the label occurring most
 often across the windows is kept and a confidence score is reported.
+The individual texts are then merged into a single sentence of the form
+`A <cluster> which is a <label>, ...`. This phrasing can be used directly
+as a prompt for text-to-video models.
 
 ## Binary color category
 
