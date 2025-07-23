@@ -54,7 +54,7 @@ def parse_args():
         ],
         help="Label file",
     )
-    p.add_argument("--save_dir", default="./EEGtoVideo/checkpoints/glmnet")
+    p.add_argument("--save_dir", default="./GLMNet/checkpoints/")
     p.add_argument(
         "--cluster",
         type=int,
@@ -121,7 +121,7 @@ def main():
     ckpt_name = args.category
     if args.cluster is not None:
         ckpt_name += f"_cluster{args.cluster}"
-    ckpt_dir = os.path.join(args.save_dir, f"{args.subj_name}_{ckpt_name}")
+    ckpt_dir = os.path.join(args.save_dir, args.subj_name, ckpt_name)
     os.makedirs(ckpt_dir, exist_ok=True)
     shallownet_path = os.path.join(ckpt_dir, "shallownet.pt")
     mlpnet_path = os.path.join(ckpt_dir, "mlpnet.pt")
