@@ -89,6 +89,11 @@ def parse_args():
     )
     p.add_argument("--n_subj", type=int, default=15, help="Number of subjects to sample for train/val when not provided")
     p.add_argument("--seed", type=int, default=0, help="Random seed for subject sampling")
+    p.add_argument(
+        "--cache_dir",
+        default="./GLMNet/cache",
+        help="Directory where per-subject features are stored",
+    )
     return p.parse_args()
 
 
@@ -130,6 +135,7 @@ def format_labels(labels: np.ndarray, category: str) -> np.ndarray:
 # ------------------------------ main -------------------------------------
 def main():
     args = parse_args()
+    os.makedirs(args.cache_dir, exist_ok=True)
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using device: {device}")
 
@@ -251,9 +257,14 @@ def main():
 
     def load_subject(name: str) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         subj_raw = np.load(os.path.join(args.raw_dir, f"{name}.npy"))
-        subj_feat = mlpnet.compute_features(subj_raw.reshape(-1, subj_raw.shape[-2], subj_raw.shape[-1])).reshape(
-            *subj_raw.shape[:4], subj_raw.shape[-2], -1
-        )
+        feat_path = os.path.join(args.cache_dir, f"{name}_feat.npy")
+        if os.path.exists(feat_path):
+            subj_feat = np.load(feat_path)
+        else:
+            subj_feat = mlpnet.compute_features(
+                subj_raw.reshape(-1, subj_raw.shape[-2], subj_raw.shape[-1])
+            ).reshape(*subj_raw.shape[:4], subj_raw.shape[-2], -1)
+            np.save(feat_path, subj_feat)
         subj_raw = subj_raw.reshape(n_blocks, n_concepts * n_rep, n_win, C, T)
         subj_feat = subj_feat.reshape(n_blocks, n_concepts * n_rep, n_win, C, -1)
         subj_raw = subj_raw.reshape(-1, n_win, C, T)[mask_flat]

@@ -77,3 +77,10 @@ python train_glmnet.py --train_subjects sub01 sub02 sub03 \
   --val_subjects sub04 sub05 --category color
 ```
 
+## Feature caching
+
+Computing spectral features for every subject can be slow.
+You can pass `--cache_dir <path>` to `train_glmnet.py` to reuse features across runs.
+The script will save features as `<path>/<subject>_feat.npy` after the first computation
+and load them on subsequent executions.
+
