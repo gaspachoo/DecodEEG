@@ -61,3 +61,19 @@ For the `label` category you can focus on a single label cluster by passing
 selected cluster before training.  Within that subset, the original label IDs
 are remapped to a contiguous range starting at zero.
 
+## Manual subject selection
+
+`train_glmnet.py` normally picks subjects at random. You can override this
+behaviour by specifying the exact subjects for each split using
+`--train_subjects`, `--val_subjects` and `--test_subjects`.  Each option accepts
+a list of file basenames without the `.npy` extension. If you only provide the
+training subjects, the script randomly chooses two validation subjects from the
+remaining pool and assigns the rest to the test set.
+
+Example:
+
+```bash
+python train_glmnet.py --train_subjects sub01 sub02 sub03 \
+  --val_subjects sub04 sub05 --category color
+```
+
