@@ -127,7 +127,7 @@ class shallownet(nn.Module):
 class deepnet(nn.Module):
     def __init__(self, out_dim, C, T):
         super(deepnet, self).__init__()
-        
+
         self.net = nn.Sequential(
             nn.Conv2d(1, 25, (1, 10), (1, 1)),
             nn.Conv2d(25, 25, (C, 1), (1, 1)),
@@ -154,7 +154,12 @@ class deepnet(nn.Module):
             nn.MaxPool2d((1, 2), (1, 2)),
             nn.Dropout(0.5),
         )
-        self.out = nn.Linear(800*(T//200), out_dim)
+
+        # compute output dimension using a dummy input tensor
+        with torch.no_grad():
+            dummy = torch.zeros(1, 1, C, T)
+            out_features = self.net(dummy).view(1, -1).shape[1]
+        self.out = nn.Linear(out_features, out_dim)
     
     def forward(self, x):               #input:(batch,1,C,T)
         x = self.net(x)
@@ -165,7 +170,7 @@ class deepnet(nn.Module):
 class eegnet(nn.Module):
     def __init__(self, out_dim, C, T):
         super(eegnet, self).__init__()
-        
+
         self.net = nn.Sequential(
             nn.Conv2d(1, 8, (1, 64), (1, 1)),
             nn.BatchNorm2d(8),
@@ -180,7 +185,12 @@ class eegnet(nn.Module):
             nn.AvgPool2d((1, 2), (1, 2)),
             nn.Dropout2d(0.5)
         )
-        self.out = nn.Linear(416*(T//200), out_dim)
+
+        # compute output dimension using a dummy input tensor
+        with torch.no_grad():
+            dummy = torch.zeros(1, 1, C, T)
+            out_features = self.net(dummy).view(1, -1).shape[1]
+        self.out = nn.Linear(out_features, out_dim)
     
     def forward(self, x):               #input:(batch,1,C,T)
         x = self.net(x)
