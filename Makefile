@@ -42,3 +42,15 @@ checkpoints:
 					echo "[Makefile] Skip label cluster $$cl: checkpoint already exists"; \
 			fi; \
 	done
+
+TRAIN_1SUB_SCRIPT := GLMNet/train_glmnet_1sub.py
+SUBJECT_TO_TRAIN := sub4
+.PHONY: checkpoints_1sub
+checkpoints_1sub:
+	@set -e; \
+	for c in $(CATEGORIES); do \
+		$(PYTHON) $(TRAIN_1SUB_SCRIPT) --category $$c $(WANDB_ARG) --subj_name $(SUBJECT_TO_TRAIN); \
+	done; \
+	for cl in $(LABEL_CLUSTERS); do \
+		$(PYTHON) $(TRAIN_1SUB_SCRIPT) --category label --cluster $$cl $(WANDB_ARG) --subj_name $(SUBJECT_TO_TRAIN); \
+	done
