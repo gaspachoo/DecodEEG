@@ -31,16 +31,16 @@ checkpoints:
 	@set -e; \
 	for c in $(CATEGORIES); do \
 			ckpt="$(CKPT_ROOT)/$(SUB_DIR)/$$c/glmnet_best.pt"; \
-                       if [ ! -f $$ckpt ]; then \
-                                       $(PYTHON) $(TRAIN_SCRIPT) --category $$c --train_subjects $(TRAIN_SUBJECTS) --cache_dir $(CACHE_DIR) $(WANDB_ARG); \
+		       if [ ! -f $$ckpt ]; then \
+				       $(PYTHON) $(TRAIN_SCRIPT) --category $$c --train_subjects $(TRAIN_SUBJECTS) --cache_dir $(CACHE_DIR) $(WANDB_ARG); \
 			else \
 					echo "[Makefile] Skip $$c: checkpoint already exists"; \
 			fi; \
 	done; \
 	for cl in $(LABEL_CLUSTERS); do \
 			ckpt="$(CKPT_ROOT)/$(SUB_DIR)/label_cluster$$cl/glmnet_best.pt"; \
-                       if [ ! -f $$ckpt ]; then \
-                                       $(PYTHON) $(TRAIN_SCRIPT) --category label --cluster $$cl --train_subjects $(TRAIN_SUBJECTS) --cache_dir $(CACHE_DIR) $(WANDB_ARG); \
+		       if [ ! -f $$ckpt ]; then \
+				       $(PYTHON) $(TRAIN_SCRIPT) --category label --cluster $$cl --train_subjects $(TRAIN_SUBJECTS) --cache_dir $(CACHE_DIR) $(WANDB_ARG); \
 			else \
 					echo "[Makefile] Skip label cluster $$cl: checkpoint already exists"; \
 			fi; \
@@ -50,30 +50,30 @@ TRAIN_1SUB_SCRIPT := GLMNet/train_glmnet_1sub.py
 SUBJECT_TO_TRAIN := sub4
 .PHONY: checkpoints_1sub
 checkpoints_1sub:
-        @set -e; \
-        for c in $(CATEGORIES); do \
-                $(PYTHON) $(TRAIN_1SUB_SCRIPT) --category $$c $(WANDB_ARG) --subj_name $(SUBJECT_TO_TRAIN); \
-        done; \
-        for cl in $(LABEL_CLUSTERS); do \
-                $(PYTHON) $(TRAIN_1SUB_SCRIPT) --category label --cluster $$cl $(WANDB_ARG) --subj_name $(SUBJECT_TO_TRAIN); \
-        done
+	@set -e; \
+	for c in $(CATEGORIES); do \
+		$(PYTHON) $(TRAIN_1SUB_SCRIPT) --category $$c $(WANDB_ARG) --subj_name $(SUBJECT_TO_TRAIN); \
+	done; \
+	for cl in $(LABEL_CLUSTERS); do \
+		$(PYTHON) $(TRAIN_1SUB_SCRIPT) --category label --cluster $$cl $(WANDB_ARG) --subj_name $(SUBJECT_TO_TRAIN); \
+	done
 
 .PHONY: checkpoints_net
 checkpoints_net:
-        @set -e; \
-        for c in $(CATEGORIES); do \
-                ckpt="$(CKPT_ROOT_NET)/$(SUB_DIR)/$$c/$(MODEL)_best.pt"; \
-                if [ ! -f $$ckpt ]; then \
-                        $(PYTHON) $(TRAIN_NET_SCRIPT) --category $$c --model $(MODEL) --train_subjects $(TRAIN_SUBJECTS); \
-                else \
-                        echo "[Makefile] Skip $$c: checkpoint already exists"; \
-                fi; \
-        done; \
-        for cl in $(LABEL_CLUSTERS); do \
-                ckpt="$(CKPT_ROOT_NET)/$(SUB_DIR)/label_cluster$$cl/$(MODEL)_best.pt"; \
-                if [ ! -f $$ckpt ]; then \
-                        $(PYTHON) $(TRAIN_NET_SCRIPT) --category label --cluster $$cl --model $(MODEL) --train_subjects $(TRAIN_SUBJECTS); \
-                else \
-                        echo "[Makefile] Skip label cluster $$cl: checkpoint already exists"; \
-                fi; \
-        done
+	@set -e; \
+	for c in $(CATEGORIES); do \
+		ckpt="$(CKPT_ROOT_NET)/$(SUB_DIR)/$$c/$(MODEL)_best.pt"; \
+		if [ ! -f $$ckpt ]; then \
+			$(PYTHON) $(TRAIN_NET_SCRIPT) --category $$c --model $(MODEL) --train_subjects $(TRAIN_SUBJECTS); \
+		else \
+			echo "[Makefile] Skip $$c: checkpoint already exists"; \
+		fi; \
+	done; \
+	for cl in $(LABEL_CLUSTERS); do \
+		ckpt="$(CKPT_ROOT_NET)/$(SUB_DIR)/label_cluster$$cl/$(MODEL)_best.pt"; \
+		if [ ! -f $$ckpt ]; then \
+			$(PYTHON) $(TRAIN_NET_SCRIPT) --category label --cluster $$cl --model $(MODEL) --train_subjects $(TRAIN_SUBJECTS); \
+		else \
+			echo "[Makefile] Skip label cluster $$cl: checkpoint already exists"; \
+		fi; \
+	done
