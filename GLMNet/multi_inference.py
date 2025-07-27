@@ -74,16 +74,6 @@ def load_model(ckpt_dir: str, channels: int, time_len: int, device: str) -> tupl
     )
     return model, scaler, stats
 
-
-def get_category(path: str) -> str:
-    """Infer the label category from a checkpoint directory."""
-    name = os.path.basename(os.path.normpath(path))
-    parts = name.split("_")
-    if len(parts) < 2:
-        raise ValueError(f"Cannot infer category from '{name}'")
-    return "_".join(parts[1:])
-
-
 def index_to_text(
     category: str,
     idx: int,
@@ -147,7 +137,7 @@ def main() -> None:
     channels, time_len = eeg.shape[-2], eeg.shape[-1]
 
     ckpt_dirs = {
-        get_category(d): os.path.join(args.checkpoint_root, d)
+        os.path.basename(os.path.normpath(d)): os.path.join(args.checkpoint_root, d)
         for d in os.listdir(args.checkpoint_root)
         if os.path.isdir(os.path.join(args.checkpoint_root, d))
     }
