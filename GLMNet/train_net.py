@@ -21,7 +21,7 @@ from GLMNet.modules.models_paper import deepnet, eegnet
 # ------------------------------ utils -------------------------------------
 def parse_args():
     p = argparse.ArgumentParser()
-    p.add_argument("--raw_dir", default="./data/Preprocessing/Segmented_500ms_sw", help="directory with .npy files")
+    p.add_argument("--raw_dir", default="./data/Preprocessing/Segmented_1000ms_sw", help="directory with .npy files")
     p.add_argument("--label_dir", default="./data/meta_info", help="Label file")
     p.add_argument(
         "--category",
@@ -45,7 +45,7 @@ def parse_args():
         help="Cluster index to filter labels (only valid when --category label)",
     )
     p.add_argument("--model", choices=["deepnet", "eegnet"], default="deepnet")
-    p.add_argument("--epochs", type=int, default=200)
+    p.add_argument("--epochs", type=int, default=500)
     p.add_argument("--bs", type=int, default=100)
     p.add_argument("--lr", type=float, default=1e-4)
     p.add_argument("--min_lr", type=float, default=1e-6, help="Minimum learning rate for the scheduler")
