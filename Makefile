@@ -47,7 +47,7 @@ checkpoints:
 	done
 
 TRAIN_1SUB_SCRIPT := GLMNet/train_glmnet_1sub.py
-SUBJECT_TO_TRAIN := sub4
+SUBJECT_TO_TRAIN := sub3
 .PHONY: checkpoints_1sub
 checkpoints_1sub:
 	@set -e; \
@@ -64,7 +64,7 @@ checkpoints_net:
 	for c in $(CATEGORIES); do \
 		ckpt="$(CKPT_ROOT_NET)/$(SUB_DIR)/$$c/$(MODEL)_best.pt"; \
 		if [ ! -f $$ckpt ]; then \
-			$(PYTHON) $(TRAIN_NET_SCRIPT) --category $$c --model $(MODEL) --train_subjects $(TRAIN_SUBJECTS); \
+			$(PYTHON) $(TRAIN_NET_SCRIPT) --category $$c --model $(MODEL) --train_subjects $(TRAIN_SUBJECTS) $(WANDB_ARG); \
 		else \
 			echo "[Makefile] Skip $$c: checkpoint already exists"; \
 		fi; \
@@ -72,7 +72,7 @@ checkpoints_net:
 	for cl in $(LABEL_CLUSTERS); do \
 		ckpt="$(CKPT_ROOT_NET)/$(SUB_DIR)/label_cluster$$cl/$(MODEL)_best.pt"; \
 		if [ ! -f $$ckpt ]; then \
-			$(PYTHON) $(TRAIN_NET_SCRIPT) --category label --cluster $$cl --model $(MODEL) --train_subjects $(TRAIN_SUBJECTS); \
+			$(PYTHON) $(TRAIN_NET_SCRIPT) --category label --cluster $$cl --model $(MODEL) --train_subjects $(TRAIN_SUBJECTS) $(WANDB_ARG); \
 		else \
 			echo "[Makefile] Skip label cluster $$cl: checkpoint already exists"; \
 		fi; \
