@@ -1,7 +1,7 @@
 import os
 import numpy as np
 from numpy.lib.stride_tricks import sliding_window_view
-
+import argparse
 
 def seg_sliding_window(data, win_s, step_s, fs=200):
     """Segment data into sliding windows.
@@ -29,19 +29,24 @@ def seg_sliding_window(data, win_s, step_s, fs=200):
 
     return windows
 
-
+def parse_args():
+    p = argparse.ArgumentParser()
+    p.add_argument('--input_dir', type=str, default='./data/Preprocessing/Segmented_Rawf_200Hz_2s')
+    p.add_argument('--fs' , type=int, default=200, help='Sampling frequency in Hz')
+    p.add_argument('--win_s', type=float, default=0.5, help='Window size in seconds')
+    p.add_argument('--step_s', type=float, default=0.25, help='Overlap size in seconds')
+    
+    return p.parse_args()
+    
 if __name__ == "__main__":
 
     # Input directory
     INPUT_DIR = './data/Preprocessing/Segmented_Rawf_200Hz_2s'
 
-    # Segmenting settings
-    FS = 200                  # sampling frequency (Hz)
-    WIN_S = 0.5               # window (seconds)
-    STEP_S = 0.25             # overlap (seconds)
+    args = parse_args()
 
     # Output directory depends on WIN_S
-    OUTPUT_DIR = f'./data/Preprocessing/Segmented_{int(1000*WIN_S)}ms_sw'
+    OUTPUT_DIR = f'./data/Preprocessing/Segmented_{int(1000*args.win_s)}ms_sw'
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
     for fname in os.listdir(INPUT_DIR):
@@ -52,11 +57,11 @@ if __name__ == "__main__":
         data = np.load(path_in)  # shape: (7, 40, 5, 62, 400)
         
         # Check if data has the expected shape
-        if data.ndim != 5 or data.shape[-1] != 2 * FS:
+        if data.ndim != 5 or data.shape[-1] != 2 * args.fs:
             print(f"Skipping {fname}: unexpected shape {data.shape}")
             continue
         
-        windows = seg_sliding_window(data, WIN_S, STEP_S, fs=FS)
+        windows = seg_sliding_window(data, args.win_s, args.step_s, fs=args.fs)
         
         # Save segmented windows
         out_path = os.path.join(OUTPUT_DIR, fname)
