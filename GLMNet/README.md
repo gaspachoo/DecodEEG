@@ -28,12 +28,14 @@ Example usage:
 ```bash
 python multi_inference.py \
   --eeg example.npy \
-  --concept 0 --repetition 0 \
+  --concepts 0 1 \
+  --repetitions 0 1 \
+  --blocks 0 1 \
   --checkpoint_root ./EEGtoVideo/checkpoints/glmnet/sub3
 ```
 
-The script now evaluates all seven windows corresponding to the selected
-`concept` and `repetition`.  For each model the label occurring most
+The script now evaluates all seven windows for every combination of the
+selected `blocks`, `concepts` and `repetitions`. For each model the label occurring most
 often across the windows is kept and a confidence score is reported.
 The individual texts are then merged into a single sentence of the form
 `A <cluster> which is a <label>, ...`. This phrasing can be used directly

@@ -112,12 +112,154 @@ def majority_vote(
     return majority, conf
 
 
+def infer_description(
+    eeg: np.ndarray,
+    models: Dict[str, GLMNet],
+    scalers: Dict[str, any],
+    stats: Dict[str, tuple],
+    device: str,
+    label_map: Dict[str, Dict[int, str]],
+) -> Tuple[str, List[float]]:
+    """Generate a descriptive phrase and confidences for one EEG sample."""
+
+    confidences: List[float] = []
+    # Descriptive pieces collected from each category
+    color_desc = None
+    face_desc = None
+    human_desc = None
+    obj_desc = None
+    flow_desc = None
+
+    if "color_binary" in models:
+        idx, conf = majority_vote(
+            eeg,
+            models["color_binary"],
+            scalers["color_binary"],
+            stats["color_binary"],
+            device,
+        )
+        confidences.append(conf)
+        if idx == 1:
+            if "color" not in models:
+                raise FileNotFoundError(
+                    "Color checkpoint required when dominant color is predicted"
+                )
+            idx_col, conf_col = majority_vote(
+                eeg,
+                models["color"],
+                scalers["color"],
+                stats["color"],
+                device,
+            )
+            color_desc = f"with dominant color {index_to_text('color', idx_col, label_map)}"
+            confidences.append(conf_col)
+        else:
+            color_desc = index_to_text("color_binary", idx, label_map)
+
+    if "face_appearance" in models:
+        idx, conf = majority_vote(
+            eeg,
+            models["face_appearance"],
+            scalers["face_appearance"],
+            stats["face_appearance"],
+            device,
+        )
+        face_desc = index_to_text("face_appearance", idx, label_map)
+        confidences.append(conf)
+
+    if "human_appearance" in models:
+        idx, conf = majority_vote(
+            eeg,
+            models["human_appearance"],
+            scalers["human_appearance"],
+            stats["human_appearance"],
+            device,
+        )
+        human_desc = index_to_text("human_appearance", idx, label_map)
+        confidences.append(conf)
+
+    idx_cluster, conf_cluster = majority_vote(
+        eeg,
+        models["label_cluster"],
+        scalers["label_cluster"],
+        stats["label_cluster"],
+        device,
+    )
+    cluster_text = index_to_text("label_cluster", idx_cluster, label_map)
+    confidences.append(conf_cluster)
+
+    label_cat = f"label_cluster{idx_cluster}"
+    idx_label, conf_label = majority_vote(
+        eeg,
+        models[label_cat],
+        scalers[label_cat],
+        stats[label_cat],
+        device,
+    )
+    label_text = index_to_text("label", idx_label, label_map, cluster_idx=idx_cluster)
+    confidences.append(conf_label)
+
+    if "obj_number" in models:
+        idx, conf = majority_vote(
+            eeg,
+            models["obj_number"],
+            scalers["obj_number"],
+            stats["obj_number"],
+            device,
+        )
+        obj_desc = index_to_text("obj_number", idx, label_map)
+        confidences.append(conf)
+
+    if "optical_flow_score" in models:
+        idx, conf = majority_vote(
+            eeg,
+            models["optical_flow_score"],
+            scalers["optical_flow_score"],
+            stats["optical_flow_score"],
+            device,
+        )
+        flow_desc = index_to_text("optical_flow_score", idx, label_map)
+        confidences.append(conf)
+
+    phrase = f"A {cluster_text} which is more specifically {label_text}"
+    if human_desc:
+        phrase += f", {human_desc}"
+    if face_desc:
+        phrase += f", {face_desc}"
+    if obj_desc:
+        phrase += f", {obj_desc}"
+    if color_desc:
+        phrase += f", {color_desc}"
+    if flow_desc:
+        phrase += f", {flow_desc}"
+
+    return phrase, confidences
+
+
 def main() -> None:
     p = argparse.ArgumentParser(description="Run multiple GLMNet models on EEG windows")
     p.add_argument("--eeg", required=True, help="Path to EEG numpy file (concept, repetition, window, C, T)")
-    p.add_argument("--block", type=int, default=0, help="Block index to load")
-    p.add_argument("--concept", type=int, default=0, help="Concept index to load")
-    p.add_argument("--repetition", type=int, default=0, help="Repetition index to load")
+    p.add_argument(
+        "--blocks",
+        type=int,
+        nargs="+",
+        default=[0],
+        help="List of blocks to load",
+    )
+    p.add_argument(
+        "--concepts",
+        type=int,
+        nargs="+",
+        default=[0],
+        help="List of concepts to load",
+    )
+    p.add_argument(
+        "--repetitions",
+        type=int,
+        nargs="+",
+        default=[0],
+        help="List of repetitions to load",
+    )
     p.add_argument(
         "--checkpoint_root",
         required=True,
@@ -133,8 +275,14 @@ def main() -> None:
 
     eeg_all = np.load(args.eeg)
     print(f"Loaded EEG data with shape {eeg_all.shape}")
-    eeg = eeg_all[args.block, args.concept, args.repetition]
-    channels, time_len = eeg.shape[-2], eeg.shape[-1]
+
+    # Determine the sample shape using the first provided indices
+    b0, c0, r0 = args.blocks[0], args.concepts[0], args.repetitions[0]
+    if eeg_all.ndim == 6:
+        sample = eeg_all[b0, c0, r0]
+    else:
+        sample = eeg_all[c0, r0]
+    channels, time_len = sample.shape[-2], sample.shape[-1]
 
     ckpt_dirs = {
         os.path.basename(os.path.normpath(d)): os.path.join(args.checkpoint_root, d)
@@ -176,118 +324,21 @@ def main() -> None:
         scalers[cat] = sc
         stats[cat] = st
 
-    confidences = []
-    # Descriptive pieces collected from each category
-    color_desc = None
-    face_desc = None
-    human_desc = None
-    obj_desc = None
-    flow_desc = None
+    for blk in args.blocks:
+        for con in args.concepts:
+            for rep in args.repetitions:
+                if eeg_all.ndim == 6:
+                    eeg = eeg_all[blk, con, rep]
+                else:
+                    eeg = eeg_all[con, rep]
 
-    if "color_binary" in models:
-        idx, conf = majority_vote(
-            eeg,
-            models["color_binary"],
-            scalers["color_binary"],
-            stats["color_binary"],
-            args.device,
-        )
-        confidences.append(conf)
-        if idx == 1:
-            if "color" not in models:
-                raise FileNotFoundError(
-                    "Color checkpoint required when dominant color is predicted"
+                phrase, confidences = infer_description(
+                    eeg, models, scalers, stats, args.device, label_map
                 )
-            idx_col, conf_col = majority_vote(
-                eeg,
-                models["color"],
-                scalers["color"],
-                stats["color"],
-                args.device,
-            )
-            color_desc = f"with dominant color {index_to_text('color', idx_col, label_map)}"
-            confidences.append(conf_col)
-        else:
-            color_desc = index_to_text("color_binary", idx, label_map)
 
-    if "face_appearance" in models:
-        idx, conf = majority_vote(
-            eeg,
-            models["face_appearance"],
-            scalers["face_appearance"],
-            stats["face_appearance"],
-            args.device,
-        )
-        face_desc = index_to_text("face_appearance", idx, label_map)
-        confidences.append(conf)
-
-    if "human_appearance" in models:
-        idx, conf = majority_vote(
-            eeg,
-            models["human_appearance"],
-            scalers["human_appearance"],
-            stats["human_appearance"],
-            args.device,
-        )
-        human_desc = index_to_text("human_appearance", idx, label_map)
-        confidences.append(conf)
-
-    idx_cluster, conf_cluster = majority_vote(
-        eeg,
-        models["label_cluster"],
-        scalers["label_cluster"],
-        stats["label_cluster"],
-        args.device,
-    )
-    cluster_text = index_to_text("label_cluster", idx_cluster, label_map)
-    confidences.append(conf_cluster)
-
-    label_cat = f"label_cluster{idx_cluster}"
-    idx_label, conf_label = majority_vote(
-        eeg,
-        models[label_cat],
-        scalers[label_cat],
-        stats[label_cat],
-        args.device,
-    )
-    label_text = index_to_text("label", idx_label, label_map, cluster_idx=idx_cluster)
-    confidences.append(conf_label)
-
-    if "obj_number" in models:
-        idx, conf = majority_vote(
-            eeg,
-            models["obj_number"],
-            scalers["obj_number"],
-            stats["obj_number"],
-            args.device,
-        )
-        obj_desc = index_to_text("obj_number", idx, label_map)
-        confidences.append(conf)
-
-    if "optical_flow_score" in models:
-        idx, conf = majority_vote(
-            eeg,
-            models["optical_flow_score"],
-            scalers["optical_flow_score"],
-            stats["optical_flow_score"],
-            args.device,
-        )
-        flow_desc = index_to_text("optical_flow_score", idx, label_map)
-        confidences.append(conf)
-
-    phrase = f"A {cluster_text} which is more specifically {label_text}"
-    if human_desc:
-        phrase += f", {human_desc}"
-    if face_desc:
-        phrase += f", {face_desc}"
-    if obj_desc:
-        phrase += f", {obj_desc}"
-    if color_desc:
-        phrase += f", {color_desc}"
-    if flow_desc:
-        phrase += f", {flow_desc}"
-    print(phrase)
-    print("Confidences:", [f"{c:.2f}" for c in confidences])
+                print(f"Block {blk} Concept {con} Repetition {rep}:")
+                print(phrase)
+                print("Confidences:", [f"{c:.2f}" for c in confidences])
 
 
 if __name__ == "__main__":
