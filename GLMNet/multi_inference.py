@@ -271,6 +271,16 @@ def main() -> None:
         help="Path to label_mappings.json"
     )
     p.add_argument("--device", default="cuda")
+    p.add_argument(
+        "--prompts_path",
+        default="prompts.txt",
+        help="File to save generated prompts",
+    )
+    p.add_argument(
+        "--confidences_path",
+        default="confidences.txt",
+        help="File to save confidence scores",
+    )
     args = p.parse_args()
 
     eeg_all = np.load(args.eeg)
@@ -324,21 +334,28 @@ def main() -> None:
         scalers[cat] = sc
         stats[cat] = st
 
-    for blk in args.blocks:
-        for con in args.concepts:
-            for rep in args.repetitions:
-                if eeg_all.ndim == 6:
-                    eeg = eeg_all[blk, con, rep]
-                else:
-                    eeg = eeg_all[con, rep]
+    # Write generated prompts and confidence scores to text files
+    with open(args.prompts_path, "w", encoding="utf-8") as f_prompts, open(
+        args.confidences_path, "w", encoding="utf-8"
+    ) as f_conf:
+        for blk in args.blocks:
+            for con in args.concepts:
+                for rep in args.repetitions:
+                    if eeg_all.ndim == 6:
+                        eeg = eeg_all[blk, con, rep]
+                    else:
+                        eeg = eeg_all[con, rep]
 
-                phrase, confidences = infer_description(
-                    eeg, models, scalers, stats, args.device, label_map
-                )
+                    phrase, confidences = infer_description(
+                        eeg, models, scalers, stats, args.device, label_map
+                    )
 
-                print(f"Block {blk} Concept {con} Repetition {rep}:")
-                print(phrase)
-                print("Confidences:", [f"{c:.2f}" for c in confidences])
+                    print(f"Block {blk} Concept {con} Repetition {rep}:")
+                    print(phrase)
+                    print("Confidences:", [f"{c:.2f}" for c in confidences])
+
+                    f_prompts.write(phrase + "\n")
+                    f_conf.write(" ".join(f"{c:.4f}" for c in confidences) + "\n")
 
 
 if __name__ == "__main__":
