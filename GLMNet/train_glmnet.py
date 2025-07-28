@@ -442,13 +442,30 @@ def main():
     preds = torch.cat(preds).numpy()
     labels_test = torch.cat(labels_test).numpy()
     cm = confusion_matrix(labels_test, preds)
+    cm_percent = confusion_matrix(labels_test, preds, normalize="true") * 100
     test_acc /= len(ds_test)
     print(f"Test accuracy = {test_acc:.3f}")
     print("Confusion matrix:\n", cm)
+    print("Weighted confusion matrix (%)\n", cm_percent)
     if args.use_wandb:
-        class_names = [str(c) for c in np.unique(labels)]
-        cm_plot = wandb.plot.confusion_matrix(probs=None, y_true=labels_test, preds=preds, class_names=class_names)
-        wandb.log({"test/acc": test_acc, "test/confusion_matrix": cm_plot})
+        class_names = [str(c) for c in np.unique(labels_test)]
+        cm_plot = wandb.plot.confusion_matrix(
+            probs=None,
+            y_true=labels_test,
+            preds=preds,
+            class_names=class_names,
+        )
+        table_columns = ["true"] + class_names
+        cm_table = wandb.Table(columns=table_columns)
+        for idx, row in enumerate(cm_percent):
+            cm_table.add_data(class_names[idx], *row.tolist())
+        wandb.log(
+            {
+                "test/acc": test_acc,
+                "test/confusion_matrix": cm_plot,
+                "test/confusion_matrix_percent": cm_table,
+            }
+        )
         wandb.finish()
 
 
