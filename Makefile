@@ -15,6 +15,7 @@ LABEL_CLUSTERS := 0 1 2 3 4 5 6 7 8
 # Optional argument to enable wandb logging
 WANDB_ARG := $(if $(use_wandb),--use_wandb)
 MODEL ?= deepnet
+SPLIT_SEED ?= 0
 
 # Directory for checkpoints
 CKPT_ROOT := GLMNet/checkpoints
@@ -51,12 +52,12 @@ SUBJECT_TO_TRAIN := sub3
 .PHONY: checkpoints_1sub
 checkpoints_1sub:
 	@set -e; \
-	for c in $(CATEGORIES); do \
-		$(PYTHON) $(TRAIN_1SUB_SCRIPT) --category $$c $(WANDB_ARG) --subj_name $(SUBJECT_TO_TRAIN); \
-	done; \
-	for cl in $(LABEL_CLUSTERS); do \
-		$(PYTHON) $(TRAIN_1SUB_SCRIPT) --category label --cluster $$cl $(WANDB_ARG) --subj_name $(SUBJECT_TO_TRAIN); \
-	done
+       for c in $(CATEGORIES); do \
+               $(PYTHON) $(TRAIN_1SUB_SCRIPT) --category $$c $(WANDB_ARG) --subj_name $(SUBJECT_TO_TRAIN) --split_seed $(SPLIT_SEED); \
+       done; \
+       for cl in $(LABEL_CLUSTERS); do \
+               $(PYTHON) $(TRAIN_1SUB_SCRIPT) --category label --cluster $$cl $(WANDB_ARG) --subj_name $(SUBJECT_TO_TRAIN) --split_seed $(SPLIT_SEED); \
+       done
 
 .PHONY: checkpoints_net
 checkpoints_net:

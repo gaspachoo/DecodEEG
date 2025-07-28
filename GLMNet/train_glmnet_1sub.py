@@ -73,6 +73,12 @@ def parse_args():
     )
     p.add_argument("--use_wandb", action="store_true")
     p.add_argument("--subj_name", default="sub3", help="Subject name to process")
+    p.add_argument(
+        "--split_seed",
+        type=int,
+        default=0,
+        help="Random seed controlling the block split",
+    )
     return p.parse_args()
 
 
@@ -163,13 +169,19 @@ def main():
             clusters = np.repeat(clusters[:, :, None], n_rep, axis=2).reshape(n_blocks, n_concepts * n_rep)
         mask_2d &= clusters == args.cluster
 
-    raw = raw.reshape(-1, n_win, C, T)  # (7*200, …)
-    feat = feat.reshape(-1, n_win, C, feat.shape[-1])
-    labels_flat = labels_raw.reshape(-1)  # (7*200,)
+    block_ids = np.repeat(np.arange(n_blocks), n_concepts * n_rep)
+    mask_flat = mask_2d.reshape(-1)
 
-    raw = raw[mask_2d.reshape(-1)]
-    feat = feat[mask_2d.reshape(-1)]
-    labels_flat = labels_flat[mask_2d.reshape(-1)] - (1 if args.category == "color" else 0)
+    raw = raw.reshape(-1, n_win, C, T)
+    feat = feat.reshape(-1, n_win, C, feat.shape[-1])
+    labels_flat = labels_raw.reshape(-1)
+
+    block_ids = block_ids[mask_flat]
+    raw = raw[mask_flat]
+    feat = feat[mask_flat]
+    labels_flat = labels_flat[mask_flat] - (
+        1 if args.category == "color" else 0
+    )
 
     def expand_labels_flat(labels_1d: np.ndarray, n_win: int) -> np.ndarray:
         """(N_vid,) → (N_vid, n_win)"""
@@ -193,18 +205,23 @@ def main():
     time_len = raw.shape[-1]  # T
     feat_dim = feat.shape[-1]
 
-    # Flatten data and split into train/val/test
     X_all = raw.reshape(-1, num_channels, time_len)
     F_all = feat.reshape(-1, num_channels, feat_dim)
     y_all = labels.reshape(-1)
 
-    n = len(y_all)
-    idx = np.random.permutation(n)
-    train_end = int(0.8 * n)
-    val_end = int(0.9 * n)
-    train_idx = idx[:train_end]
-    val_idx = idx[train_end:val_end]
-    test_idx = idx[val_end:]
+    block_ids_win = np.repeat(block_ids, n_win)
+
+    rng = np.random.RandomState(args.split_seed)
+    val_block, test_block = rng.choice(np.arange(n_blocks), size=2, replace=False)
+    print(f"Validation block: {val_block}, Test block: {test_block}")
+
+    train_mask = (block_ids_win != val_block) & (block_ids_win != test_block)
+    val_mask = block_ids_win == val_block
+    test_mask = block_ids_win == test_block
+
+    train_idx = np.where(train_mask)[0]
+    val_idx = np.where(val_mask)[0]
+    test_idx = np.where(test_mask)[0]
 
     X_train, F_train, y_train = X_all[train_idx], F_all[train_idx], y_all[train_idx]
     X_val, F_val, y_val = X_all[val_idx], F_all[val_idx], y_all[val_idx]
@@ -261,7 +278,8 @@ def main():
     criterion = nn.CrossEntropyLoss()
 
     if args.use_wandb:
-        wandb.init(project=PROJECT_NAME, name=f"{args.subj_name}_{ckpt_name}", config=vars(args))
+        run_name = f"{args.subj_name}_{ckpt_name}_val{val_block}_test{test_block}"
+        wandb.init(project=PROJECT_NAME, name=run_name, config=vars(args))
         wandb.watch(model, log="all")
 
     best_val = 0.0
