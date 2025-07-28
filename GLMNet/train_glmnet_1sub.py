@@ -27,7 +27,7 @@ from GLMNet.modules.models_paper import mlpnet
 
 
 # -------- W&B -------------------------------------------------------------
-PROJECT_NAME = "eeg2Video-GLMNetv4"  # <‑‑ change if you need another project
+PROJECT_NAME = "eeg2Video-GLMNetv4.1-1sub"  # <‑‑ change if you need another project
 
 # ------------------------------ constants ---------------------------------
 OCCIPITAL_IDX = list(range(50, 62))  # 12 occipital channels
