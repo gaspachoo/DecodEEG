@@ -1,4 +1,4 @@
-import os, time, argparse, sys
+import os, time, argparse, sys, re
 import numpy as np
 import torch
 import torch.nn as nn
@@ -27,7 +27,7 @@ from GLMNet.modules.models_paper import mlpnet
 
 
 # -------- W&B -------------------------------------------------------------
-PROJECT_NAME = "EEGtoVideo-GLMNetv3"  # <‑‑ change if you need another project
+PROJECT_NAME = "eeg2video-GLMNetv4"  # <‑‑ change if you need another project
 
 # ------------------------------ constants ---------------------------------
 OCCIPITAL_IDX = list(range(50, 62))  # 12 occipital channels
@@ -99,11 +99,11 @@ def parse_args():
 
 def reshape_labels(labels: np.ndarray, n_win: int) -> np.ndarray:
     """Expand labels to match the EEG window dimension."""
-    if labels.shape[1] == 40:
+    if labels.shape[1] == 40: # (7,40)
         labels = labels[..., None, None]
         labels = np.repeat(labels, 5, axis=2)
     else:
-        assert labels.shape[1] == 200, "Labels must be (7,40,200) or (7,40)"
+        assert labels.shape[1] == 200, "Labels must be (7,200) or (7,40)"
         labels = labels.reshape(-1, 40, 5)[..., None]
 
     labels = np.repeat(labels, n_win, axis=3)
@@ -197,7 +197,8 @@ def main():
     glmnet_path = os.path.join(ckpt_dir, "glmnet_best.pt")
 
     sample_raw = np.load(os.path.join(args.raw_dir, f"{train_subj[0]}.npy"))
-    sample_feat = mlpnet.compute_features(sample_raw.reshape(-1, sample_raw.shape[-2], sample_raw.shape[-1])).reshape(
+    duration_ms = int(re.search(r'_(\d+)ms_', os.path.basename(args.raw_dir)).group(1)) / 1000
+    sample_feat = mlpnet.compute_features(sample_raw.reshape(-1, sample_raw.shape[-2], sample_raw.shape[-1]), win_sec=duration_ms).reshape(
         *sample_raw.shape[:4], sample_raw.shape[-2], -1
     )
 
@@ -257,12 +258,12 @@ def main():
 
     def load_subject(name: str) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         subj_raw = np.load(os.path.join(args.raw_dir, f"{name}.npy"))
-        feat_path = os.path.join(args.cache_dir, f"{name}_feat.npy")
+        feat_path = os.path.join(args.cache_dir, f"{name}_{1000*duration_ms}_feat.npy")
         if os.path.exists(feat_path):
             subj_feat = np.load(feat_path)
         else:
             subj_feat = mlpnet.compute_features(
-                subj_raw.reshape(-1, subj_raw.shape[-2], subj_raw.shape[-1])
+                subj_raw.reshape(-1, subj_raw.shape[-2], subj_raw.shape[-1]), win_sec=duration_ms
             ).reshape(*subj_raw.shape[:4], subj_raw.shape[-2], -1)
             np.save(feat_path, subj_feat)
         subj_raw = subj_raw.reshape(n_blocks, n_concepts * n_rep, n_win, C, T)

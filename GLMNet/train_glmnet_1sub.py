@@ -1,4 +1,4 @@
-import os, time, argparse, sys
+import os, time, argparse, sys, re
 import numpy as np
 import torch
 import torch.nn as nn
@@ -27,7 +27,7 @@ from GLMNet.modules.models_paper import mlpnet
 
 
 # -------- W&B -------------------------------------------------------------
-PROJECT_NAME = "EEGtoVideo-GLMNetv3"  # <‑‑ change if you need another project
+PROJECT_NAME = "eeg2Video-GLMNetv4"  # <‑‑ change if you need another project
 
 # ------------------------------ constants ---------------------------------
 OCCIPITAL_IDX = list(range(50, 62))  # 12 occipital channels
@@ -78,11 +78,11 @@ def parse_args():
 
 def reshape_labels(labels: np.ndarray, n_win: int) -> np.ndarray:
     """Expand labels to match the EEG window dimension."""
-    if labels.shape[1] == 40:
+    if labels.shape[1] == 40: # (7,40)
         labels = labels[..., None, None]
         labels = np.repeat(labels, 5, axis=2)
     else:
-        assert labels.shape[1] == 200, "Labels must be (7,40,200) or (7,40)"
+        assert labels.shape[1] == 200, "Labels must be (7,40) or (7,200)"
         labels = labels.reshape(-1, 40, 5)[..., None]
 
     labels = np.repeat(labels, n_win, axis=3)
@@ -131,7 +131,8 @@ def main():
 
     raw = np.load(os.path.join(args.raw_dir, f"{args.subj_name}.npy"))
     # compute DE features from raw EEG windows
-    feat = mlpnet.compute_features(raw.reshape(-1, raw.shape[-2], raw.shape[-1])).reshape(
+    duration_ms = int(re.search(r'_(\d+)ms_', os.path.basename(args.raw_dir)).group(1)) / 1000
+    feat = mlpnet.compute_features(raw.reshape(-1, raw.shape[-2], raw.shape[-1]), win_sec=duration_ms).reshape(
         *raw.shape[:4], raw.shape[-2], -1
     )
 
