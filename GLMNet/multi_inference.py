@@ -243,21 +243,21 @@ def main() -> None:
         "--blocks",
         type=int,
         nargs="+",
-        default=[0],
+        default=[i for i in range(7)],
         help="List of blocks to load",
     )
     p.add_argument(
         "--concepts",
         type=int,
         nargs="+",
-        default=[0],
+        default=[i for i in range(40)],
         help="List of concepts to load",
     )
     p.add_argument(
         "--repetitions",
         type=int,
         nargs="+",
-        default=[0],
+        default=[i for i in range(5)],
         help="List of repetitions to load",
     )
     p.add_argument(
