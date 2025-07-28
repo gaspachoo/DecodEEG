@@ -27,7 +27,7 @@ from GLMNet.modules.models_paper import mlpnet
 
 
 # -------- W&B -------------------------------------------------------------
-PROJECT_NAME = "eeg2video-GLMNetv4"  # <‑‑ change if you need another project
+PROJECT_NAME = "eeg2video-GLMNetv4-1"  # <‑‑ change if you need another project
 
 # ------------------------------ constants ---------------------------------
 OCCIPITAL_IDX = list(range(50, 62))  # 12 occipital channels
@@ -37,7 +37,7 @@ OCCIPITAL_IDX = list(range(50, 62))  # 12 occipital channels
 def parse_args():
     # "/Documents/School/Centrale Med/2A/SSE/EEGtoVideo"
     p = argparse.ArgumentParser()
-    p.add_argument("--raw_dir", default="./data/Preprocessing/Segmented_500ms_sw", help="directory with .npy files")
+    p.add_argument("--raw_dir", default="./data/Preprocessing/Segmented_1000ms_sw", help="directory with .npy files")
     p.add_argument("--label_dir", default="./data/meta_info", help="Label file")
     p.add_argument(
         "--category",
