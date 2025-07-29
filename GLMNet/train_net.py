@@ -187,6 +187,14 @@ def main():
 
     base_labels = format_labels(expand_labels_flat(labels_flat, n_win), args.category)
 
+    if args.cluster is not None and args.category == "label":
+        uniq = np.sort(np.unique(base_labels))
+        mapping = {v: i for i, v in enumerate(uniq)}
+        base_labels = np.vectorize(mapping.get)(base_labels)
+        print(
+            f"Cluster {args.cluster}: mapping original labels {uniq.tolist()} -> {list(mapping.values())}"
+        )
+
     unique_labels, counts_labels = np.unique(base_labels, return_counts=True)
     num_unique_labels = len(unique_labels)
     label_final_distribution = {int(u): int(c) for u, c in zip(unique_labels, counts_labels)}
