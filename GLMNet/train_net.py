@@ -253,7 +253,7 @@ def main():
 
     if args.use_wandb:
         import wandb
-        wandb.init(project="EEGtoVideo-GLMNetv3", name=f"sub_{name_ids}_{ckpt_name}_{args.model}", config=vars(args))
+        wandb.init(project="EEGtoVideo-GLMNetv4", name=f"sub_{name_ids}_{ckpt_name}_{args.model}", config=vars(args))
         wandb.watch(model, log="all")
 
     best_val = 0.0
