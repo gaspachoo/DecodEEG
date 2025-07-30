@@ -54,12 +54,6 @@ class GLMNet(nn.Module):
             return state["fc.weight"].shape[0]
         raise KeyError("Cannot infer output dimension from checkpoint")
 
-    @classmethod
-    def load_from_checkpoint(cls, ckpt_path: str, device: str = "cpu") -> dict:
-        """Simple wrapper around ``torch.load``."""
-        return torch.load(ckpt_path, map_location=device)
-
-
     def forward(self, x_raw, x_feat, return_features: bool = False):
         """Forward pass of the network.
 
