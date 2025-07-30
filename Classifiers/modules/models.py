@@ -200,8 +200,8 @@ class glmnet(nn.Module):
             classification layer. Defaults to ``False``.
         """
 
-        x_raw = x[..., :self.time_len].unsqueeze(1)
-        x_feat = x[..., self.time_len:]
+        x_raw = x[..., :self.time_len]
+        x_feat = x[..., self.time_len:].squeeze(1)
 
         g_raw = self.raw_global(x_raw)
         l_freq = self.freq_local(x_feat[:, self.occipital_idx, :])

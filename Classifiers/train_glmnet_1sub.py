@@ -246,15 +246,15 @@ def main():
 
     # DataLoaders built from concatenated features
     ds_train = TensorDataset(
-        torch.tensor(X_train, dtype=torch.float32),
+        torch.tensor(X_train, dtype=torch.float32).unsqueeze(1),
         torch.tensor(y_train),
     )
     ds_val = TensorDataset(
-        torch.tensor(X_val, dtype=torch.float32),
+        torch.tensor(X_val, dtype=torch.float32).unsqueeze(1),
         torch.tensor(y_val),
     )
     ds_test = TensorDataset(
-        torch.tensor(X_test, dtype=torch.float32),
+        torch.tensor(X_test, dtype=torch.float32).unsqueeze(1),
         torch.tensor(y_test),
     )
 
