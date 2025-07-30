@@ -104,35 +104,27 @@ def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using device: {device}")
 
+    # ------------------------------------------------------------------ 1
+    # Subject discovery and split
     # ---------------------------------------------------------------------
-    # 1) Subject discovery and split
-    # ---------------------------------------------------------------------
-    all_subj = sorted(
-        f[:-4] for f in os.listdir(args.raw_dir) if f.startswith("sub") and f.endswith(".npy")
-    )
+    all_subj = sorted(f[:-4] for f in os.listdir(args.raw_dir)
+                      if f.startswith("sub") and f.endswith(".npy"))
     if args.n_subj > len(all_subj):
         raise ValueError("Not enough subject files in raw_dir")
 
     ckpt_seed_dir = os.path.join(args.save_dir, "multi", str(args.seed))
     train_subj, val_subj, test_subj = subject_split(
-        args.seed,
-        all_subj,
-        ckpt_seed_dir=ckpt_seed_dir,
-        n_select=args.n_subj,
+        args.seed, all_subj, ckpt_seed_dir=ckpt_seed_dir, n_select=args.n_subj
     )
     print("Training subjects:", train_subj)
     print("Validation subjects:", val_subj)
-    print("Test subjects:", test_subj)
+    print("Test subjects:",      test_subj)
 
+    # ------------------------------------------------------------------ 2
+    # Persistent paths & global shapes
     # ---------------------------------------------------------------------
-    # 2) Paths & shapes
-    # ---------------------------------------------------------------------
-    ckpt_name = args.category
-    if args.cluster is not None:
-        ckpt_name += f"_cluster{args.cluster}"
-    ckpt_dir = os.path.join(
-        args.save_dir, "multi", str(args.seed), args.model, ckpt_name
-    )
+    ckpt_name = args.category + (f"_cluster{args.cluster}" if args.cluster is not None else "")
+    ckpt_dir  = os.path.join(args.save_dir, "multi", str(args.seed), args.model, ckpt_name)
     os.makedirs(ckpt_dir, exist_ok=True)
     model_path = os.path.join(ckpt_dir, f"{args.model}_best.pt")
     stats_path = os.path.join(ckpt_dir, "raw_stats.npz")
@@ -141,17 +133,12 @@ def main():
         mlpnet_path = os.path.join(ckpt_dir, "mlpnet.pt")
         scaler_path = os.path.join(ckpt_dir, "scaler.pkl")
 
-    # Shape discovery from first subject
+    # infer basic dims from one file
     sample_raw = np.load(os.path.join(args.raw_dir, f"{train_subj[0]}.npy"))
     n_blocks, n_concepts, n_rep, n_win, C, T = sample_raw.shape
-    sample_raw = sample_raw.reshape(n_blocks, n_concepts * n_rep, n_win, C, T)
 
-    # Feature duration (needed later)
-    duration_ms = (
-        int(re.search(r"_(\d+)ms_", os.path.basename(args.raw_dir)).group(1)) / 1000
-        if args.model == "glmnet"
-        else None
-    )
+    duration_ms = int(re.search(r"_(\d+)ms_", os.path.basename(args.raw_dir)).group(1)) / 1000 \
+                  if args.model == "glmnet" else None
 
     # ---------------------------------------------------------------------
     # 3) Labels & masks
@@ -191,57 +178,81 @@ def main():
     label_final_distribution = {int(u): int(c) for u, c in zip(unique_labels, counts_labels)}
     print("Label distribution after formating:", label_final_distribution)
     
-    # ---------------------------------------------------------------------
-    # 4) Helpers to load & concat subjects (raw only)
+    # ------------------------------------------------------------------ 4
+    # 4) Helpers: load one subject   ➜  returns flattened windows + labels + ids
     # ---------------------------------------------------------------------
     def load_subject(name: str):
-        subj_raw = np.load(os.path.join(args.raw_dir, f"{name}.npy"))
-        subj_raw = subj_raw.reshape(n_blocks, n_concepts * n_rep, n_win, C, T)
-        subj_raw = subj_raw.reshape(-1, n_win, C, T)[mask_flat]       # (samples, W, C, T)
-        subj_labels = base_labels.copy()                              # (samples, W)
-        return subj_raw, subj_labels
+        raw = np.load(os.path.join(args.raw_dir, f"{name}.npy"))
+        raw = raw.reshape(n_blocks, n_concepts * n_rep, n_win, C, T)
+        raw = raw.reshape(-1, n_win, C, T)[mask_flat]       # (samples, W, C, T)
+        lab = base_labels.copy()                            # (samples, W)
+
+        # -------- flatten window dimension ---------
+        X_flat = raw.reshape(-1, C, T)                      # (samples·W, C, T)
+        y_flat = lab.reshape(-1)                            # (samples·W,)
+        ids    = np.full_like(y_flat, fill_value=int(name.replace("sub", "")),
+                              dtype=np.int16)
+        return X_flat, y_flat, ids
 
     def concat_subjects(names: list[str]):
-        X_list, y_list = [], []
+        X_list, y_list, id_list, slice_map = [], [], [], {}
+        offset = 0
         for n in names:
-            print("Processing subject:", n)
-            xr, yl = load_subject(n)
-            X_list.append(xr)
-            y_list.append(yl)
-        if not X_list:                                                # empty split
-            return (
-                np.empty((0, n_win, C, T)),
-                np.empty((0, n_win), dtype=np.int64),
-            )
-        return np.concatenate(X_list), np.concatenate(y_list)
+            xf, yf, ids = load_subject(n)
+            nsamp       = len(yf)
+            slice_map[n] = slice(offset, offset + nsamp)    # keep track for caching
+            offset += nsamp
 
-    print("Concatenating subjects...")
-    X_train, y_train = concat_subjects(train_subj)
-    X_val,   y_val   = concat_subjects(val_subj)
-    X_test,  y_test  = concat_subjects(test_subj)
+            X_list.append(xf)
+            y_list.append(yf)
+            id_list.append(ids)
+        if not X_list:                                      # empty split
+            return (np.empty((0, C, T)), np.empty((0,), np.int64),
+                    np.empty((0,), np.int16), {})
+        return (np.concatenate(X_list),
+                np.concatenate(y_list),
+                np.concatenate(id_list),
+                slice_map)
 
+    print("Loading & concatenating subjects…")
+    X_train, y_train, ids_train, slice_train = concat_subjects(train_subj)
+    X_val,   y_val,   ids_val,   slice_val   = concat_subjects(val_subj)
+    X_test,  y_test,  ids_test,  slice_test  = concat_subjects(test_subj)
+
+    # ------------------------------------------------------------------ 5
+    # Feature extraction with per-subject cache
     # ---------------------------------------------------------------------
-    # 5) Flatten (window → sample) and compute features globally
-    # ---------------------------------------------------------------------
-    X_train = X_train.reshape(-1, C, T)        # (Ntrain, C, T)
-    X_val   = X_val.reshape(-1, C, T)
-    X_test  = X_test.reshape(-1, C, T)
-
-    y_train = y_train.reshape(-1)
-    y_val   = y_val.reshape(-1)
-    y_test  = y_test.reshape(-1)
-
     if args.model == "glmnet":
-        print("Computing features...")
-        F_train = mlpnet.compute_features(X_train, win_sec=duration_ms)  # (Ntrain, C, F)
-        F_val   = mlpnet.compute_features(X_val,   win_sec=duration_ms)
-        F_test  = mlpnet.compute_features(X_test,  win_sec=duration_ms)
-        feat_dim = F_train.shape[2]
+        def extract_or_load(X_all, sl_map, split_tag):
+            """Return feature matrix aligned to X_all, caching per subject."""
+            parts, feat_dim = [], None
+            for sid in sl_map:  # guaranteed order == concat order
+                sl   = sl_map[sid]
+                fpth = os.path.join(
+                    args.cache_dir, f"{sid}_{duration_ms*1000:.1f}_feat.npy"
+                )
+                if os.path.exists(fpth):
+                    feat = np.load(fpth)
+                else:
+                    feat = mlpnet.compute_features(X_all[sl], win_sec=duration_ms)
+                    np.save(fpth, feat)
+                if feat_dim is None:
+                    feat_dim = feat.shape[2]
+                parts.append(feat)
+            return np.concatenate(parts), feat_dim
+
+        print("→ Features (train)…")
+        F_train, feat_dim = extract_or_load(X_train, slice_train, "train")
+        print("→ Features (val)…")
+        F_val, _          = extract_or_load(X_val,   slice_val,   "val")
+        print("→ Features (test)…")
+        F_test, _         = extract_or_load(X_test,  slice_test,  "test")
     else:
         F_train = F_val = F_test = None
+        feat_dim = 0   # placeholder
 
-    # ---------------------------------------------------------------------
-    # 6) Normalisation & scaling
+    # ------------------------------------------------------------------ 6
+    # Normalisation & scaling
     # ---------------------------------------------------------------------
     raw_mean, raw_std = compute_raw_stats(X_train)
     X_train = normalize_raw(X_train, raw_mean, raw_std)
@@ -253,12 +264,10 @@ def main():
         F_val_scaled           = standard_scale_features(F_val,  scaler=scaler)
         F_test_scaled          = standard_scale_features(F_test, scaler=scaler)
 
-        # concat along feature axis -> shape (N, C, T + F)
         X_train = np.concatenate([X_train, F_train_scaled], axis=2)
         X_val   = np.concatenate([X_val,   F_val_scaled],   axis=2)
         X_test  = np.concatenate([X_test,  F_test_scaled],  axis=2)
 
-        # save preprocessing artefacts
         with open(scaler_path, "wb") as f:
             pickle.dump(scaler, f)
     np.savez(stats_path, mean=raw_mean, std=raw_std)
@@ -282,7 +291,7 @@ def main():
     dl_train = DataLoader(ds_train, args.bs, shuffle=True)
     dl_val   = DataLoader(ds_val,   args.bs)
     dl_test  = DataLoader(ds_test,  args.bs)
-
+    
     model = glmnet(
         OCCIPITAL_IDX,
         C=C,
@@ -303,7 +312,7 @@ def main():
     criterion = nn.CrossEntropyLoss()
 
     if args.use_wandb:
-        wandb.init(project=PROJECT_NAME, name=f"sub_{name_ids}_{ckpt_name}_glmnet", config=vars(args))
+        wandb.init(project=PROJECT_NAME, name=f"seed_{args.seed}_{ckpt_name}_{args.model}", config=vars(args))
         wandb.watch(model, log="all")
 
     best_val = 0.0
