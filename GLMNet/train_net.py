@@ -6,6 +6,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader, TensorDataset
+import wandb
 from torch.optim.lr_scheduler import ReduceLROnPlateau, StepLR, CosineAnnealingLR
 from tqdm import tqdm
 from sklearn.metrics import confusion_matrix
@@ -16,6 +17,11 @@ if project_root not in sys.path:
 
 from GLMNet.modules.utils_glmnet import compute_raw_stats, normalize_raw
 from GLMNet.modules.models_paper import deepnet, eegnet
+
+
+# -------- W&B -------------------------------------------------------------
+PROJECT_NAME = "eeg2video-GLMNetv4"  # <‑‑ change if you need another project
+
 
 
 # ------------------------------ utils -------------------------------------
@@ -221,8 +227,7 @@ def main():
     criterion = nn.CrossEntropyLoss()
 
     if args.use_wandb:
-        import wandb
-        wandb.init(project="eeg2video-GLMNetv4", name=f"sub_{name_ids}_{ckpt_name}_{args.model}", config=vars(args))
+        wandb.init(project=PROJECT_NAME, name=f"sub_{name_ids}_{ckpt_name}_{args.model}", config=vars(args))
         wandb.watch(model, log="all")
 
     best_val = 0.0

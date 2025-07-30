@@ -35,7 +35,6 @@ OCCIPITAL_IDX = list(range(50, 62))  # 12 occipital channels
 
 # ------------------------------ utils -------------------------------------
 def parse_args():
-    # "/Documents/School/Centrale Med/2A/SSE/EEGtoVideo"
     p = argparse.ArgumentParser()
     p.add_argument("--raw_dir", default="./data/Preprocessing/Segmented_1000ms_sw", help="directory with .npy files")
     p.add_argument("--label_dir", default="./data/meta_info", help="Label file")
@@ -113,7 +112,7 @@ def format_labels(labels: np.ndarray, category: str) -> np.ndarray:
             return (labels > threshold).astype(np.int64)
         case _:
             raise ValueError(
-                f"Unknown category: {category}. Must be one of: color, color_binary, face_appearance, human_appearance, object, label_cluster, label, obj_number, optical_flow_score."
+                f"Unknown category: {category}. Must be one of: color, color_binary, face_appearance, human_appearance, label_cluster, label, obj_number, optical_flow_score."
             )
 
 
