@@ -187,6 +187,18 @@ class glmnet(nn.Module):
             return state["fc.weight"].shape[0]
         raise KeyError("Cannot infer output dimension from checkpoint")
 
+    @staticmethod
+    def infer_feat_dim(state: dict, occipital_len: int) -> int:
+        """Infer ``feat_dim`` from a checkpoint state dict."""
+        for key in (
+            "freq_local.net.1.weight",
+            "module.freq_local.net.1.weight",
+        ):
+            if key in state:
+                in_features = state[key].shape[1]
+                return in_features // occipital_len
+        raise KeyError("Cannot infer feature dimension from checkpoint")
+
     def forward(self, x, return_features: bool = False):
         """Forward pass of the network.
 

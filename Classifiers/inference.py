@@ -83,7 +83,14 @@ def generate_all_embeddings(
         state = torch.load(model_path, map_location=device)
         if model_type == "glmnet":
             out_dim = glmnet.infer_out_dim(state)
-            model = glmnet(OCCIPITAL_IDX, C=num_channels, T=time_len, out_dim=out_dim)
+            feat_dim = glmnet.infer_feat_dim(state, len(OCCIPITAL_IDX))
+            model = glmnet(
+                OCCIPITAL_IDX,
+                C=num_channels,
+                T=time_len,
+                feat_dim=feat_dim,
+                out_dim=out_dim,
+            )
         else:
             out_dim = state["out.weight"].shape[0]
             model_cls = eegnet if model_type == "eegnet" else deepnet
