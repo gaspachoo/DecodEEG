@@ -230,10 +230,11 @@ def main():
 
     # Flatten the window dimension so each row is one EEG segment
     X_train = X_train.reshape(-1, C, T)
-    y_train = y_train.reshape(-1)
     X_val = X_val.reshape(-1, C, T)
-    y_val = y_val.reshape(-1)
     X_test = X_test.reshape(-1, C, T)
+    
+    y_train = y_train.reshape(-1)
+    y_val = y_val.reshape(-1)
     y_test = y_test.reshape(-1)
     
     F_train = F_train.reshape(-1, C, feat_dim)

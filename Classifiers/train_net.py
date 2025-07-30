@@ -195,10 +195,11 @@ def main():
     X_test, y_test = concat_subjects(test_subj)
 
     X_train = X_train.reshape(-1, C, T)
-    y_train = y_train.reshape(-1)
     X_val = X_val.reshape(-1, C, T)
-    y_val = y_val.reshape(-1)
     X_test = X_test.reshape(-1, C, T)
+    
+    y_train = y_train.reshape(-1)
+    y_val = y_val.reshape(-1)
     y_test = y_test.reshape(-1)
 
     raw_mean, raw_std = compute_raw_stats(X_train)
