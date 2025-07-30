@@ -98,8 +98,8 @@ def format_labels(labels: np.ndarray, category: str) -> np.ndarray:
 # ------------------------------ main -------------------------------------
 def main():
     args = parse_args()
-    if args.model == "glmnet":
-        os.makedirs(args.cache_dir, exist_ok=True)
+    
+    os.makedirs(args.cache_dir, exist_ok=True)
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using device: {device}")
@@ -178,24 +178,62 @@ def main():
     label_final_distribution = {int(u): int(c) for u, c in zip(unique_labels, counts_labels)}
     print("Label distribution after formating:", label_final_distribution)
     
-    # ------------------------------------------------------------------ 4
+    # ---------------------------------------------------------------------
     # 4) Helpers: load one subject   ➜  returns flattened windows + labels + ids
     # ---------------------------------------------------------------------
-    def load_subject(name: str):
+    def _load_or_cache_raw(name: str) -> np.ndarray:
+        """
+        Load the subject’s flattened raw windows from cache if available;
+        otherwise build them from the source file, save to cache, and return.
+
+        Returns
+        -------
+        np.ndarray
+            Shape (samples·W, C, T)  — raw EEG windows, still un-normalised.
+        """
+        raw_cache = os.path.join(args.cache_dir, f"{name}_raw.npy")
+
+        if os.path.exists(raw_cache):
+            # Use memory mapping for lazy loading; avoids copying everything into RAM
+            return np.load(raw_cache, mmap_mode="r")
+
+        # --- Build from original file ---
         raw = np.load(os.path.join(args.raw_dir, f"{name}.npy"))
         raw = raw.reshape(n_blocks, n_concepts * n_rep, n_win, C, T)
-        raw = raw.reshape(-1, n_win, C, T)[mask_flat]       # (samples, W, C, T)
-        lab = base_labels.copy()                            # (samples, W)
+        raw = raw.reshape(-1, n_win, C, T)[mask_flat]          # (samples, W, C, T)
+        X_flat = raw.reshape(-1, C, T).astype(np.float32)       # (samples·W, C, T)
 
-        # -------- flatten window dimension ---------
-        X_flat = raw.reshape(-1, C, T)                      # (samples·W, C, T)
-        y_flat = lab.reshape(-1)                            # (samples·W,)
-        ids    = np.full_like(y_flat, fill_value=int(name.replace("sub", "")),
-                              dtype=np.int16)
-        return X_flat, y_flat, ids
+        # Save to cache for future runs
+        np.save(raw_cache, X_flat)
+        return X_flat
+
+
+    def load_subject(name: str):
+        """
+        Returns (X_flat, y_flat, ids) for a given subject.
+
+        Parameters
+        ----------
+        name : str
+            Subject identifier, e.g. "sub1".
+
+        Returns
+        -------
+        X_flat : np.ndarray
+            Raw windows, shape (samples·W, C, T), still un-normalised.
+        y_flat : np.ndarray
+            Corresponding labels, shape (samples·W,).
+        ids : np.ndarray
+            Subject ID repeated for each sample, shape (samples·W,).
+        """
+        X_flat = _load_or_cache_raw(name)
+
+        # Labels are identical across subjects and already masked by `mask_flat`
+        y_flat = base_labels.reshape(-1)                        # (samples·W,)
+        return X_flat, y_flat
 
     def concat_subjects(names: list[str]):
-        X_list, y_list, slice_map = [], [], [], {}
+        X_list, y_list, slice_map = [], [], {}
         offset = 0
         for n in names:
             xf, yf = load_subject(n)
@@ -215,6 +253,10 @@ def main():
     X_train, y_train, slice_train = concat_subjects(train_subj)
     X_val,   y_val,   slice_val   = concat_subjects(val_subj)
     X_test,  y_test,  slice_test  = concat_subjects(test_subj)
+    
+    X_train = X_train.reshape(-1, C, T)      # (N_train, C, T)
+    X_val   = X_val.reshape(-1, C, T)
+    X_test  = X_test.reshape(-1, C, T)
 
     # ------------------------------------------------------------------ 5
     # Feature extraction with per-subject cache
