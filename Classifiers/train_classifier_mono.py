@@ -22,7 +22,7 @@ from Classifiers.modules.utils import (
 )
 from Classifiers.modules.models import mlpnet, glmnet, eegnet, deepnet
 
-PROJECT_NAME = "eeg2video-classifiersv4"
+PROJECT_NAME = "eeg2video-classifiersv4-mono"
 
 OCCIPITAL_IDX = list(range(50, 62))
 
