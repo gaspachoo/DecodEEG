@@ -212,8 +212,6 @@ def main():
     label_final_distribution = {int(u): int(c) for u, c in zip(unique_labels, counts_labels)}
     print("Label distribution after formating:", label_final_distribution)
 
-    labels = base_labels
-
     feat_dim = sample_feat.shape[-1]
 
     def load_subject(name: str) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
