@@ -343,10 +343,7 @@ def main():
             )
 
     state = torch.load(glmnet_path, map_location=device)
-    out_dim = GLMNet.infer_out_dim(state)
-    model = GLMNet(OCCIPITAL_IDX, C=num_channels, T=time_len, out_dim=out_dim)
     model.load_state_dict(state)
-    model.to(device)
     model.eval()
 
     scaler = load_scaler(scaler_path)
