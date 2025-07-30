@@ -15,12 +15,12 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 
-from GLMNet.modules.utils import (
+from Classifiers.modules.utils import (
     standard_scale_features,
     compute_raw_stats,
     normalize_raw,
 )
-from GLMNet.modules.models import mlpnet, glmnet
+from Classifiers.modules.models import mlpnet, glmnet
 
 
 # -------- W&B -------------------------------------------------------------

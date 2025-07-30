@@ -9,13 +9,13 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
     
 
-from GLMNet.modules.utils import (
+from Classifiers.modules.utils import (
     standard_scale_features,
     normalize_raw,
     load_scaler,
     load_raw_stats,
 )
-from GLMNet.modules.models import mlpnet, glmnet
+from Classifiers.modules.models import mlpnet, glmnet
 
 
 OCCIPITAL_IDX = list(range(50, 62))  # 12 occipital channels

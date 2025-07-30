@@ -1,4 +1,4 @@
-import os, argparse, sys, re
+import os, argparse, sys
 import numpy as np
 import torch
 import torch.nn as nn
@@ -7,27 +7,19 @@ from torch.utils.data import DataLoader, TensorDataset
 from tqdm import tqdm
 import wandb
 from torch.optim.lr_scheduler import ReduceLROnPlateau, StepLR, CosineAnnealingLR
-import pickle
 from sklearn.metrics import confusion_matrix
 
 project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-
-from GLMNet.modules.utils import (
-    standard_scale_features,
-    compute_raw_stats,
-    normalize_raw,
-)
-from GLMNet.modules.models import mlpnet, glmnet
+from Classifiers.modules.utils import compute_raw_stats, normalize_raw
+from Classifiers.modules.models import deepnet, eegnet
 
 
 # -------- W&B -------------------------------------------------------------
 PROJECT_NAME = "eeg2video-GLMNetv4"  # <‑‑ change if you need another project
 
-# ------------------------------ constants ---------------------------------
-OCCIPITAL_IDX = list(range(50, 62))  # 12 occipital channels
 
 
 # ------------------------------ utils -------------------------------------
@@ -50,12 +42,13 @@ def parse_args():
         ],
         help="Label file",
     )
-    p.add_argument("--save_dir", default="./GLMNet/checkpoints/")
+    p.add_argument("--save_dir", default="./GLMNet/checkpoints_net/")
     p.add_argument(
         "--cluster",
         type=int,
         help="Cluster index to filter labels (only valid when --category label)",
     )
+    p.add_argument("--model", choices=["deepnet", "eegnet"], default="deepnet")
     p.add_argument("--epochs", type=int, default=500)
     p.add_argument("--bs", type=int, default=100)
     p.add_argument("--lr", type=float, default=1e-4)
@@ -70,11 +63,6 @@ def parse_args():
     p.add_argument("--use_wandb", action="store_true")
     p.add_argument("--n_subj", type=int, default=15, help="Number of subjects to sample for train/val when not provided")
     p.add_argument("--seed", type=int, default=0, help="Random seed for subject sampling")
-    p.add_argument(
-        "--cache_dir",
-        default="./GLMNet/cache",
-        help="Directory where per-subject features are stored",
-    )
     return p.parse_args()
 
 
@@ -102,7 +90,6 @@ def format_labels(labels: np.ndarray, category: str) -> np.ndarray:
 # ------------------------------ main -------------------------------------
 def main():
     args = parse_args()
-    os.makedirs(args.cache_dir, exist_ok=True)
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using device: {device}")
 
@@ -127,33 +114,21 @@ def main():
 
     name_ids = "_".join(s.replace("sub", "") for s in train_subj)
 
-    # Define saving paths
     ckpt_name = args.category
     if args.cluster is not None:
         ckpt_name += f"_cluster{args.cluster}"
     ckpt_dir = os.path.join(args.save_dir, f"sub_{name_ids}", ckpt_name)
     os.makedirs(ckpt_dir, exist_ok=True)
-    glmnet_path = os.path.join(ckpt_dir, "glmnet_best.pt")
+    model_path = os.path.join(ckpt_dir, f"{args.model}_best.pt")
     stats_path = os.path.join(ckpt_dir, "raw_stats.npz")
-    shallownet_path = os.path.join(ckpt_dir, "shallownet.pt")
-    mlpnet_path = os.path.join(ckpt_dir, "mlpnet.pt")
-    scaler_path = os.path.join(ckpt_dir, "scaler.pkl")
 
     sample_raw = np.load(os.path.join(args.raw_dir, f"{train_subj[0]}.npy"))
-    duration_ms = int(re.search(r'_(\d+)ms_', os.path.basename(args.raw_dir)).group(1)) / 1000
-    sample_feat = mlpnet.compute_features(sample_raw.reshape(-1, sample_raw.shape[-2], sample_raw.shape[-1]), win_sec=duration_ms).reshape(
-        *sample_raw.shape[:4], sample_raw.shape[-2], -1
-    )
-
     n_blocks, n_concepts, n_rep, n_win, C, T = sample_raw.shape
-
     sample_raw = sample_raw.reshape(n_blocks, n_concepts * n_rep, n_win, C, T)
-    sample_feat = sample_feat.reshape(n_blocks, n_concepts * n_rep, n_win, C, -1)
 
     label_path = os.path.join(args.label_dir, f"All_video_{args.category}.npy")
     if args.category == "color_binary" and not os.path.exists(label_path):
         label_path = os.path.join(args.label_dir, "All_video_color.npy")
-
     labels_raw = np.load(label_path)
     if labels_raw.shape[1] == n_concepts:
         labels_raw = np.repeat(labels_raw[:, :, None], n_rep, axis=2).reshape(n_blocks, n_concepts * n_rep)
@@ -189,89 +164,53 @@ def main():
     label_final_distribution = {int(u): int(c) for u, c in zip(unique_labels, counts_labels)}
     print("Label distribution after formating:", label_final_distribution)
 
-    feat_dim = sample_feat.shape[-1]
-
-    def load_subject(name: str) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def load_subject(name: str) -> tuple[np.ndarray, np.ndarray]:
         subj_raw = np.load(os.path.join(args.raw_dir, f"{name}.npy"))
-        feat_path = os.path.join(args.cache_dir, f"{name}_{1000*duration_ms}_feat.npy")
-        if os.path.exists(feat_path):
-            subj_feat = np.load(feat_path)
-        else:
-            subj_feat = mlpnet.compute_features(
-                subj_raw.reshape(-1, subj_raw.shape[-2], subj_raw.shape[-1]), win_sec=duration_ms
-            ).reshape(*subj_raw.shape[:4], subj_raw.shape[-2], -1)
-            np.save(feat_path, subj_feat)
         subj_raw = subj_raw.reshape(n_blocks, n_concepts * n_rep, n_win, C, T)
-        subj_feat = subj_feat.reshape(n_blocks, n_concepts * n_rep, n_win, C, -1)
         subj_raw = subj_raw.reshape(-1, n_win, C, T)[mask_flat]
-        subj_feat = subj_feat.reshape(-1, n_win, C, feat_dim)[mask_flat]
         subj_labels = base_labels.copy()
-        return subj_raw, subj_feat, subj_labels
+        return subj_raw, subj_labels
 
     def concat_subjects(names: list[str]):
-        X_list, F_list, y_list = [], [], []
+        X_list, y_list = [], []
         for n in names:
             print("Processing subject:", n)
-            xr, xf, yl = load_subject(n)
+            xr, yl = load_subject(n)
             X_list.append(xr)
-            F_list.append(xf)
             y_list.append(yl)
         if not X_list:
-            return np.empty((0, n_win, C, T)), np.empty((0, n_win, C, feat_dim)), np.empty((0, n_win), dtype=np.int64)
-        return np.concatenate(X_list), np.concatenate(F_list), np.concatenate(y_list)
+            return np.empty((0, n_win, C, T)), np.empty((0, n_win), dtype=np.int64)
+        return np.concatenate(X_list), np.concatenate(y_list)
 
     print("Concatenating subjects...")
-    
-    X_train, F_train, y_train = concat_subjects(train_subj)
-    X_val, F_val, y_val = concat_subjects(val_subj)
-    X_test, F_test, y_test = concat_subjects(test_subj)
+    X_train, y_train = concat_subjects(train_subj)
+    X_val, y_val = concat_subjects(val_subj)
+    X_test, y_test = concat_subjects(test_subj)
 
-    # Flatten the window dimension so each row is one EEG segment
     X_train = X_train.reshape(-1, C, T)
-    F_train = F_train.reshape(-1, C, feat_dim)
     y_train = y_train.reshape(-1)
-
     X_val = X_val.reshape(-1, C, T)
-    F_val = F_val.reshape(-1, C, feat_dim)
     y_val = y_val.reshape(-1)
-
     X_test = X_test.reshape(-1, C, T)
-    F_test = F_test.reshape(-1, C, feat_dim)
     y_test = y_test.reshape(-1)
-    
-    num_channels = C
-    time_len = T
 
-    # Normalization parameters from training data
     raw_mean, raw_std = compute_raw_stats(X_train)
     X_train = normalize_raw(X_train, raw_mean, raw_std)
     X_val = normalize_raw(X_val, raw_mean, raw_std)
     X_test = normalize_raw(X_test, raw_mean, raw_std)
 
-    # Feature scaling
-    F_train_scaled, scaler = standard_scale_features(F_train, return_scaler=True)
-    F_val_scaled = standard_scale_features(F_val, scaler=scaler)
-    F_test_scaled = standard_scale_features(F_test, scaler=scaler)
-
-    # Save preprocessing objects
-    with open(scaler_path, "wb") as f:
-        pickle.dump(scaler, f)
     np.savez(stats_path, mean=raw_mean, std=raw_std)
 
-    # DataLoaders
     ds_train = TensorDataset(
         torch.tensor(X_train, dtype=torch.float32).unsqueeze(1),
-        torch.tensor(F_train_scaled, dtype=torch.float32),
         torch.tensor(y_train),
     )
     ds_val = TensorDataset(
         torch.tensor(X_val, dtype=torch.float32).unsqueeze(1),
-        torch.tensor(F_val_scaled, dtype=torch.float32),
         torch.tensor(y_val),
     )
     ds_test = TensorDataset(
         torch.tensor(X_test, dtype=torch.float32).unsqueeze(1),
-        torch.tensor(F_test_scaled, dtype=torch.float32),
         torch.tensor(y_test),
     )
 
@@ -279,7 +218,8 @@ def main():
     dl_val = DataLoader(ds_val, args.bs)
     dl_test = DataLoader(ds_test, args.bs)
 
-    model = glmnet(OCCIPITAL_IDX, C=num_channels, T=time_len, out_dim=num_unique_labels).to(device)
+    model_cls = deepnet if args.model == "deepnet" else eegnet
+    model = model_cls(out_dim=num_unique_labels, C=C, T=T).to(device)
     opt = optim.Adam(model.parameters(), lr=args.lr)
 
     if args.scheduler == "reducelronplateau":
@@ -293,17 +233,17 @@ def main():
     criterion = nn.CrossEntropyLoss()
 
     if args.use_wandb:
-        wandb.init(project=PROJECT_NAME, name=f"sub_{name_ids}_{ckpt_name}", config=vars(args))
+        wandb.init(project=PROJECT_NAME, name=f"sub_{name_ids}_{ckpt_name}_{args.model}", config=vars(args))
         wandb.watch(model, log="all")
 
     best_val = 0.0
     for ep in tqdm(range(1, args.epochs + 1)):
         model.train()
         tl = ta = 0
-        for xb, xf, yb in dl_train:
-            xb, xf, yb = xb.to(device), xf.to(device), yb.to(device)
+        for xb, yb in dl_train:
+            xb, yb = xb.to(device), yb.to(device)
             opt.zero_grad()
-            pred = model(xb, xf)
+            pred = model(xb)
             loss = criterion(pred, yb)
             loss.backward()
             opt.step()
@@ -314,9 +254,9 @@ def main():
         model.eval()
         vl = va = 0
         with torch.no_grad():
-            for xb, xf, yb in dl_val:
-                xb, xf, yb = xb.to(device), xf.to(device), yb.to(device)
-                pred = model(xb, xf)
+            for xb, yb in dl_val:
+                xb, yb = xb.to(device), yb.to(device)
+                pred = model(xb)
                 vloss = criterion(pred, yb)
                 vl += vloss.item() * len(yb)
                 va += (pred.argmax(1) == yb).sum().item()
@@ -339,9 +279,7 @@ def main():
         if val_acc > best_val:
             best_val = val_acc
             os.makedirs(ckpt_dir, exist_ok=True)
-            torch.save(model.state_dict(), glmnet_path)
-            torch.save(model.raw_global.state_dict(), shallownet_path)
-            torch.save(model.freq_local.state_dict(), mlpnet_path)
+            torch.save(model.state_dict(), model_path)
             tqdm.write(f"New best model saved at epoch {ep} with val_acc={val_acc:.3f}")
 
         if args.use_wandb:
@@ -356,15 +294,16 @@ def main():
                 }
             )
 
-    state = torch.load(glmnet_path, map_location=device)
+    state = torch.load(model_path, map_location=device)
     model.load_state_dict(state)
     model.eval()
+
     test_acc = 0
     preds, labels_test = [], []
     with torch.no_grad():
-        for xb, xf, yb in dl_test:
-            xb, xf, yb = xb.to(device), xf.to(device), yb.to(device)
-            out = model(xb, xf)
+        for xb, yb in dl_test:
+            xb, yb = xb.to(device), yb.to(device)
+            out = model(xb)
             pred_labels = out.argmax(1)
             test_acc += (pred_labels == yb).sum().item()
             preds.append(pred_labels.cpu())

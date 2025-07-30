@@ -17,13 +17,13 @@ from typing import Dict, List, Tuple
 import numpy as np
 import torch
 
-from GLMNet.modules.utils import (
+from Classifiers.modules.utils import (
     load_scaler,
     load_raw_stats,
     normalize_raw,
     standard_scale_features,
 )
-from GLMNet.modules.models import mlpnet, glmnet
+from Classifiers.modules.models import mlpnet, glmnet
 
 
 OCCIPITAL_IDX = list(range(50, 62))
