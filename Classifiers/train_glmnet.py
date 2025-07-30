@@ -300,7 +300,7 @@ def main():
     criterion = nn.CrossEntropyLoss()
 
     if args.use_wandb:
-        wandb.init(project=PROJECT_NAME, name=f"sub_{name_ids}_{ckpt_name}", config=vars(args))
+        wandb.init(project=PROJECT_NAME, name=f"sub_{name_ids}_{ckpt_name}_glmnet", config=vars(args))
         wandb.watch(model, log="all")
 
     best_val = 0.0

@@ -135,6 +135,7 @@ def main():
     label_path = os.path.join(args.label_dir, f"All_video_{args.category}.npy")
     if args.category == "color_binary" and not os.path.exists(label_path):
         label_path = os.path.join(args.label_dir, "All_video_color.npy")
+
     labels_raw = np.load(label_path)
     if labels_raw.shape[1] == n_concepts:
         labels_raw = np.repeat(labels_raw[:, :, None], n_rep, axis=2).reshape(n_blocks, n_concepts * n_rep)
