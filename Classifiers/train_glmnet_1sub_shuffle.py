@@ -210,25 +210,27 @@ def main():
     F_val_scaled = standard_scale_features(F_val, scaler=scaler)
     F_test_scaled = standard_scale_features(F_test, scaler=scaler)
 
+    # Concatenate normalized raw EEG with scaled spectral features
+    X_train = np.concatenate([X_train, F_train_scaled], axis=2)
+    X_val = np.concatenate([X_val, F_val_scaled], axis=2)
+    X_test = np.concatenate([X_test, F_test_scaled], axis=2)
+
     # Save preprocessing objects
     with open(scaler_path, "wb") as f:
         pickle.dump(scaler, f)
     np.savez(stats_path, mean=raw_mean, std=raw_std)
 
-    # DataLoaders
+    # DataLoaders built from concatenated features
     ds_train = TensorDataset(
-        torch.tensor(X_train, dtype=torch.float32).unsqueeze(1),
-        torch.tensor(F_train_scaled, dtype=torch.float32),
+        torch.tensor(X_train, dtype=torch.float32),
         torch.tensor(y_train),
     )
     ds_val = TensorDataset(
-        torch.tensor(X_val, dtype=torch.float32).unsqueeze(1),
-        torch.tensor(F_val_scaled, dtype=torch.float32),
+        torch.tensor(X_val, dtype=torch.float32),
         torch.tensor(y_val),
     )
     ds_test = TensorDataset(
-        torch.tensor(X_test, dtype=torch.float32).unsqueeze(1),
-        torch.tensor(F_test_scaled, dtype=torch.float32),
+        torch.tensor(X_test, dtype=torch.float32),
         torch.tensor(y_test),
     )
 
@@ -236,7 +238,13 @@ def main():
     dl_val = DataLoader(ds_val, args.bs)
     dl_test = DataLoader(ds_test, args.bs)
 
-    model = glmnet(OCCIPITAL_IDX, C=num_channels, T=time_len, out_dim=num_unique_labels).to(device)
+    model = glmnet(
+        OCCIPITAL_IDX,
+        C=num_channels,
+        T=time_len,
+        feat_dim=feat_dim,
+        out_dim=num_unique_labels,
+    ).to(device)
     opt = optim.Adam(model.parameters(), lr=args.lr)
 
     if args.scheduler == "reducelronplateau":
@@ -257,10 +265,10 @@ def main():
     for ep in tqdm(range(1, args.epochs + 1)):
         model.train()
         tl = ta = 0
-        for xb, xf, yb in dl_train:
-            xb, xf, yb = xb.to(device), xf.to(device), yb.to(device)
+        for xb, yb in dl_train:
+            xb, yb = xb.to(device), yb.to(device)
             opt.zero_grad()
-            pred = model(xb, xf)
+            pred = model(xb)
             loss = criterion(pred, yb)
             loss.backward()
             opt.step()
@@ -271,9 +279,9 @@ def main():
         model.eval()
         vl = va = 0
         with torch.no_grad():
-            for xb, xf, yb in dl_val:
-                xb, xf, yb = xb.to(device), xf.to(device), yb.to(device)
-                pred = model(xb, xf)
+            for xb, yb in dl_val:
+                xb, yb = xb.to(device), yb.to(device)
+                pred = model(xb)
                 vloss = criterion(pred, yb)
                 vl += vloss.item() * len(yb)
                 va += (pred.argmax(1) == yb).sum().item()
@@ -320,9 +328,9 @@ def main():
     test_acc = 0
     preds, labels_test = [], []
     with torch.no_grad():
-        for xb, xf, yb in dl_test:
-            xb, xf, yb = xb.to(device), xf.to(device), yb.to(device)
-            out = model(xb, xf)
+        for xb, yb in dl_test:
+            xb, yb = xb.to(device), yb.to(device)
+            out = model(xb)
             pred_labels = out.argmax(1)
             test_acc += (pred_labels == yb).sum().item()
             preds.append(pred_labels.cpu())

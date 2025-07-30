@@ -136,29 +136,34 @@ class mlpnet(nn.Module):
 class glmnet(nn.Module):
     """ShallowNet (raw) + MLP (freq) → concat → FC."""
 
-    def __init__(self, occipital_idx, C: int, T: int, out_dim: int = 40, emb_dim: int = 512):
+    def __init__(self, occipital_idx, C: int, T: int, *, feat_dim: int = 5, out_dim: int = 40, emb_dim: int = 512):
         """Construct the GLMNet model.
 
         Parameters
         ----------
         occipital_idx : iterable
             Indexes of occipital channels used for the local branch.
+        C : int
+            Number of EEG channels.
+        T : int
+            Temporal length of the raw EEG windows.
+        feat_dim : int, optional
+            Number of features per channel in the spectral representation.
+            Defaults to ``5``.
         out_dim : int
             Dimension of the classification output.
         emb_dim : int
             Dimension of the intermediate embeddings (each branch outputs
             ``emb_dim`` features).
-        T : int
-            Number of temporal samples of the raw EEG. This value can vary
-            depending on the dataset.
         """
         super().__init__()
         self.occipital_idx = list(occipital_idx)
+        self.time_len = T
 
         # Global branch processing raw EEG
         self.raw_global = shallownet(emb_dim, C, T)
         # Local branch processing spectral features
-        self.freq_local = mlpnet(emb_dim, len(self.occipital_idx) * 5)
+        self.freq_local = mlpnet(emb_dim, len(self.occipital_idx) * feat_dim)
 
         # Projection of concatenated features followed by classifier
         self.projection = nn.Sequential(
@@ -182,19 +187,21 @@ class glmnet(nn.Module):
             return state["fc.weight"].shape[0]
         raise KeyError("Cannot infer output dimension from checkpoint")
 
-    def forward(self, x_raw, x_feat, return_features: bool = False):
+    def forward(self, x, return_features: bool = False):
         """Forward pass of the network.
 
         Parameters
         ----------
-        x_raw : torch.Tensor
-            Raw EEG of shape ``(B, 1, 62, T)``.
-        x_feat : torch.Tensor
-            Spectral features of shape ``(B, 62, 5)``.
+        x : torch.Tensor
+            Concatenated raw EEG and features of shape
+            ``(B, C, time_len + feat_dim)``.
         return_features : bool, optional
             If ``True`` returns the projected features before the
             classification layer. Defaults to ``False``.
         """
+
+        x_raw = x[..., :self.time_len].unsqueeze(1)
+        x_feat = x[..., self.time_len:]
 
         g_raw = self.raw_global(x_raw)
         l_freq = self.freq_local(x_feat[:, self.occipital_idx, :])
