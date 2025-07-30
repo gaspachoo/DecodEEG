@@ -1,6 +1,4 @@
-import os
-import sys
-import argparse
+import os, argparse, sys
 import numpy as np
 import torch
 import torch.nn as nn
