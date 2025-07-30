@@ -20,7 +20,9 @@ time)`.
 
 Any of the supported encoders can be trained on these windows.  Models predict
 class labels for categories such as *color*, *label cluster* or *object number*.
-Checkpoints are saved under directories named after their label categories.
+Checkpoints are stored under `Checkpoints/<mode>/<seed>/<model>/<category>`.
+For single-subject runs the hierarchy becomes
+`Checkpoints/mono/<subject>/<ordered|shuffle>/<seed>/<model>/<category>`.
 
 ## Classification and text generation
 
@@ -47,7 +49,7 @@ python Classifiers/multi_inference.py \
   --blocks 0 1 \
   --concepts 0 1 \
   --repetitions 0 1 \
-  --checkpoint_root ./checkpoints/glmnet/sub3
+  --checkpoint_root ./Checkpoints/multi/0/glmnet
 ```
 
 The script evaluates all windows for every selected segment and prints the

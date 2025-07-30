@@ -42,7 +42,7 @@ def parse_args():
         ],
         help="Label file",
     )
-    p.add_argument("--save_dir", default="./Classifiers/checkpoints_net/")
+    p.add_argument("--save_dir", default="./Checkpoints")
     p.add_argument(
         "--cluster",
         type=int,
@@ -117,7 +117,13 @@ def main():
     ckpt_name = args.category
     if args.cluster is not None:
         ckpt_name += f"_cluster{args.cluster}"
-    ckpt_dir = os.path.join(args.save_dir, f"sub_{name_ids}", ckpt_name)
+    ckpt_dir = os.path.join(
+        args.save_dir,
+        "multi",
+        str(args.seed),
+        args.model,
+        ckpt_name,
+    )
     os.makedirs(ckpt_dir, exist_ok=True)
     model_path = os.path.join(ckpt_dir, f"{args.model}_best.pt")
     stats_path = os.path.join(ckpt_dir, "raw_stats.npz")

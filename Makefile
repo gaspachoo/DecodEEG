@@ -18,9 +18,9 @@ MODEL ?= deepnet
 SPLIT_SEED ?= 0
 
 # Directory for checkpoints
-CKPT_ROOT := Classifiers/checkpoints
+CKPT_ROOT := Checkpoints
 CACHE_DIR := Classifiers/cache
-CKPT_ROOT_NET := Classifiers/checkpoints_net
+CKPT_ROOT_NET := Checkpoints
 TRAIN_NET_SCRIPT := Classifiers/train_net.py
 
 # Directory name matching the default split with seed 0

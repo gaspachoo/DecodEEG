@@ -50,7 +50,7 @@ def parse_args():
         ],
         help="Label file",
     )
-    p.add_argument("--save_dir", default="./Classifiers/checkpoints/")
+    p.add_argument("--save_dir", default="./Checkpoints")
     p.add_argument(
         "--cluster",
         type=int,
@@ -69,6 +69,7 @@ def parse_args():
     )
     p.add_argument("--use_wandb", action="store_true")
     p.add_argument("--subj_name", default="sub3", help="Subject name to process")
+    p.add_argument("--seed", type=int, default=0, help="Random seed")
     return p.parse_args()
 
 def format_labels(labels: np.ndarray, category: str) -> np.ndarray:
@@ -102,7 +103,15 @@ def main():
     ckpt_name = args.category
     if args.cluster is not None:
         ckpt_name += f"_cluster{args.cluster}"
-    ckpt_dir = os.path.join(args.save_dir, args.subj_name, ckpt_name)
+    ckpt_dir = os.path.join(
+        args.save_dir,
+        "mono",
+        args.subj_name,
+        "shuffle",
+        str(args.seed),
+        "glmnet",
+        ckpt_name,
+    )
     os.makedirs(ckpt_dir, exist_ok=True)
     shallownet_path = os.path.join(ckpt_dir, "shallownet.pt")
     mlpnet_path = os.path.join(ckpt_dir, "mlpnet.pt")

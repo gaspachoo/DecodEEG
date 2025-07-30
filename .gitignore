@@ -2,6 +2,7 @@
 wandb/
 data/
 checkpoints*/
+Checkpoints/
 __pycache__/
 
 # Files types
