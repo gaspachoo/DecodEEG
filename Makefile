@@ -18,8 +18,7 @@ MODEL ?= deepnet
 SPLIT_SEED ?= 0
 
 # Directory for checkpoints
-CKPT_ROOT := Checkpoints
-CKPT_ROOT_NET := Checkpoints
+CKPT_ROOT := Classifiers/checkpoints
 TRAIN_NET_SCRIPT := Classifiers/train_net.py
 
 
@@ -69,17 +68,17 @@ checkpoints_1sub:
 checkpoints_net:
 	@set -e; \
 	for c in $(CATEGORIES); do \
-		ckpt="$(CKPT_ROOT_NET)/multi/$(SPLIT_SEED)/$(MODEL)/$$c/$(MODEL)_best.pt"; \
+		ckpt="$(CKPT_ROOT)/multi/$(SPLIT_SEED)/$(MODEL)/$$c/$(MODEL)_best.pt"; \
 		if [ ! -f $$ckpt ]; then \
-			$(PYTHON) $(TRAIN_NET_SCRIPT) --category $$c --model $(MODEL) --seed $(SPLIT_SEED) --save_dir $(CKPT_ROOT_NET) $(WANDB_ARG); \
+			$(PYTHON) $(TRAIN_NET_SCRIPT) --category $$c --model $(MODEL) --seed $(SPLIT_SEED) --save_dir $(CKPT_ROOT) $(WANDB_ARG); \
 		else \
 			echo "[Makefile] Skip $$c: checkpoint already exists"; \
 		fi; \
 	done; \
 	for cl in $(LABEL_CLUSTERS); do \
-		ckpt="$(CKPT_ROOT_NET)/multi/$(SPLIT_SEED)/$(MODEL)/label_cluster$$cl/$(MODEL)_best.pt"; \
+		ckpt="$(CKPT_ROOT)/multi/$(SPLIT_SEED)/$(MODEL)/label_cluster$$cl/$(MODEL)_best.pt"; \
 		if [ ! -f $$ckpt ]; then \
-			$(PYTHON) $(TRAIN_NET_SCRIPT) --category label --cluster $$cl --model $(MODEL) --seed $(SPLIT_SEED) --save_dir $(CKPT_ROOT_NET) $(WANDB_ARG); \
+			$(PYTHON) $(TRAIN_NET_SCRIPT) --category label --cluster $$cl --model $(MODEL) --seed $(SPLIT_SEED) --save_dir $(CKPT_ROOT) $(WANDB_ARG); \
 		else \
 			echo "[Makefile] Skip label cluster $$cl: checkpoint already exists"; \
 		fi; \
