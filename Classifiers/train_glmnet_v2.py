@@ -195,35 +195,32 @@ def main():
         return X_flat, y_flat, ids
 
     def concat_subjects(names: list[str]):
-        X_list, y_list, id_list, slice_map = [], [], [], {}
+        X_list, y_list, slice_map = [], [], [], {}
         offset = 0
         for n in names:
-            xf, yf, ids = load_subject(n)
+            xf, yf = load_subject(n)
             nsamp       = len(yf)
             slice_map[n] = slice(offset, offset + nsamp)    # keep track for caching
             offset += nsamp
 
             X_list.append(xf)
             y_list.append(yf)
-            id_list.append(ids)
-        if not X_list:                                      # empty split
-            return (np.empty((0, C, T)), np.empty((0,), np.int64),
-                    np.empty((0,), np.int16), {})
+        if not X_list:                                       # empty split
+            return np.empty((0, C, T)), np.empty((0,), np.int64), {}
         return (np.concatenate(X_list),
                 np.concatenate(y_list),
-                np.concatenate(id_list),
                 slice_map)
 
     print("Loading & concatenating subjects…")
-    X_train, y_train, ids_train, slice_train = concat_subjects(train_subj)
-    X_val,   y_val,   ids_val,   slice_val   = concat_subjects(val_subj)
-    X_test,  y_test,  ids_test,  slice_test  = concat_subjects(test_subj)
+    X_train, y_train, slice_train = concat_subjects(train_subj)
+    X_val,   y_val,   slice_val   = concat_subjects(val_subj)
+    X_test,  y_test,  slice_test  = concat_subjects(test_subj)
 
     # ------------------------------------------------------------------ 5
     # Feature extraction with per-subject cache
     # ---------------------------------------------------------------------
     if args.model == "glmnet":
-        def extract_or_load(X_all, sl_map, split_tag):
+        def extract_or_load(X_all, sl_map):
             """Return feature matrix aligned to X_all, caching per subject."""
             parts, feat_dim = [], None
             for sid in sl_map:  # guaranteed order == concat order
@@ -242,11 +239,11 @@ def main():
             return np.concatenate(parts), feat_dim
 
         print("→ Features (train)…")
-        F_train, feat_dim = extract_or_load(X_train, slice_train, "train")
+        F_train, feat_dim = extract_or_load(X_train, slice_train)
         print("→ Features (val)…")
-        F_val, _          = extract_or_load(X_val,   slice_val,   "val")
+        F_val, _          = extract_or_load(X_val,   slice_val)
         print("→ Features (test)…")
-        F_test, _         = extract_or_load(X_test,  slice_test,  "test")
+        F_test, _         = extract_or_load(X_test,  slice_test)
     else:
         F_train = F_val = F_test = None
         feat_dim = 0   # placeholder
