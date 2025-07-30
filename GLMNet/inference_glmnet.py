@@ -80,9 +80,12 @@ def generate_all_embeddings(
         # expect shape: (7, 40, 5, 7, 62, T)
         time_len = RAW_SW.shape[-1]
         num_channels = RAW_SW.shape[-2]
-        model = GLMNet.load_from_checkpoint(
-            model_path, OCCIPITAL_IDX, C = num_channels, T= time_len, device=device
-        )
+        state = torch.load(model_path, map_location=device)
+        out_dim = GLMNet.infer_out_dim(state)
+        model = GLMNet(OCCIPITAL_IDX, C=num_channels, T=time_len, out_dim=out_dim)
+        model.load_state_dict(state)
+        model.to(device)
+        model.eval()
         embeddings = inf_glmnet(model, scaler, RAW_SW, stats, device)
         
         out_path = os.path.join(output_dir, f"{subj}.npy")

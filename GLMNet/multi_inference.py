@@ -69,9 +69,12 @@ def load_model(ckpt_dir: str, channels: int, time_len: int, device: str) -> tupl
     scaler = load_scaler(os.path.join(ckpt_dir, "scaler.pkl"))
     stats = load_raw_stats(os.path.join(ckpt_dir, "raw_stats.npz"))
     model_path = os.path.join(ckpt_dir, "glmnet_best.pt")
-    model = GLMNet.load_from_checkpoint(
-        model_path, OCCIPITAL_IDX, C=channels, T=time_len, device=device
-    )
+    state = torch.load(model_path, map_location=device)
+    out_dim = GLMNet.infer_out_dim(state)
+    model = GLMNet(OCCIPITAL_IDX, C=channels, T=time_len, out_dim=out_dim)
+    model.load_state_dict(state)
+    model.to(device)
+    model.eval()
     return model, scaler, stats
 
 def index_to_text(

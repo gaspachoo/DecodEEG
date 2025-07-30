@@ -43,31 +43,21 @@ class GLMNet(nn.Module):
             nn.Linear(emb_dim // 2, out_dim),
         )
 
-    @classmethod
-    def load_from_checkpoint(
-        cls,
-        ckpt_path: str,
-        occipital_idx: list,
-        C: int,
-        T: int,
-        device: str = "cpu",
-    ) -> "GLMNet":
-        """Instantiate ``GLMNet`` from a saved state dict."""
-        state = torch.load(ckpt_path, map_location=device)
+    @staticmethod
+    def infer_out_dim(state: dict) -> int:
+        """Infer ``out_dim`` from a checkpoint state dict."""
         if "classifier.1.weight" in state:
-            out_dim = state["classifier.1.weight"].shape[0]
-        elif "fc.2.weight" in state:
-            out_dim = state["fc.2.weight"].shape[0]
-        elif "fc.weight" in state:
-            out_dim = state["fc.weight"].shape[0]
-        else:
-            raise KeyError("Cannot infer output dimension from checkpoint")
+            return state["classifier.1.weight"].shape[0]
+        if "fc.2.weight" in state:
+            return state["fc.2.weight"].shape[0]
+        if "fc.weight" in state:
+            return state["fc.weight"].shape[0]
+        raise KeyError("Cannot infer output dimension from checkpoint")
 
-        model = cls(occipital_idx, C=C, T=T, out_dim=out_dim)
-        model.load_state_dict(state)
-        model.to(device)
-        model.eval()
-        return model
+    @classmethod
+    def load_from_checkpoint(cls, ckpt_path: str, device: str = "cpu") -> dict:
+        """Simple wrapper around ``torch.load``."""
+        return torch.load(ckpt_path, map_location=device)
 
 
     def forward(self, x_raw, x_feat, return_features: bool = False):
