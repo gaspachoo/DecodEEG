@@ -16,12 +16,11 @@ if project_root not in sys.path:
 
 
 from GLMNet.modules.utils_glmnet import (
-    GLMNet,
     standard_scale_features,
     compute_raw_stats,
     normalize_raw,
 )
-from GLMNet.modules.models_paper import mlpnet
+from GLMNet.modules.models_paper import mlpnet, glmnet
 
 
 # -------- W&B -------------------------------------------------------------
@@ -246,7 +245,7 @@ def main():
     dl_val = DataLoader(ds_val, args.bs)
     dl_test = DataLoader(ds_test, args.bs)
 
-    model = GLMNet(OCCIPITAL_IDX, C=num_channels, T=time_len, out_dim=num_unique_labels).to(device)
+    model = glmnet(OCCIPITAL_IDX, C=num_channels, T=time_len, out_dim=num_unique_labels).to(device)
     opt = optim.Adam(model.parameters(), lr=args.lr)
 
     if args.scheduler == "reducelronplateau":

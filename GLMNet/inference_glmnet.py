@@ -10,13 +10,12 @@ if project_root not in sys.path:
     
 
 from GLMNet.modules.utils_glmnet import (
-    GLMNet,
     standard_scale_features,
     normalize_raw,
     load_scaler,
     load_raw_stats,
 )
-from GLMNet.modules.models_paper import mlpnet
+from GLMNet.modules.models_paper import mlpnet, glmnet
 
 
 OCCIPITAL_IDX = list(range(50, 62))  # 12 occipital channels
@@ -81,8 +80,8 @@ def generate_all_embeddings(
         time_len = RAW_SW.shape[-1]
         num_channels = RAW_SW.shape[-2]
         state = torch.load(model_path, map_location=device)
-        out_dim = GLMNet.infer_out_dim(state)
-        model = GLMNet(OCCIPITAL_IDX, C=num_channels, T=time_len, out_dim=out_dim)
+        out_dim = glmnet.infer_out_dim(state)
+        model = glmnet(OCCIPITAL_IDX, C=num_channels, T=time_len, out_dim=out_dim)
         model.load_state_dict(state)
         model.to(device)
         model.eval()

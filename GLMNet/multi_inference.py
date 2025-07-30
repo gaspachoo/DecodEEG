@@ -18,13 +18,12 @@ import numpy as np
 import torch
 
 from GLMNet.modules.utils_glmnet import (
-    GLMNet,
     load_scaler,
     load_raw_stats,
     normalize_raw,
     standard_scale_features,
 )
-from GLMNet.modules.models_paper import mlpnet
+from GLMNet.modules.models_paper import mlpnet, glmnet
 
 
 OCCIPITAL_IDX = list(range(50, 62))
@@ -64,14 +63,14 @@ def prepare_input(eeg: np.ndarray, stats, scaler) -> tuple[torch.Tensor, torch.T
     return x_raw, x_feat
 
 
-def load_model(ckpt_dir: str, channels: int, time_len: int, device: str) -> tuple[GLMNet, any, tuple[np.ndarray, np.ndarray]]:
+def load_model(ckpt_dir: str, channels: int, time_len: int, device: str) -> tuple[glmnet, any, tuple[np.ndarray, np.ndarray]]:
     """Load GLMNet model with its scaler and raw statistics."""
     scaler = load_scaler(os.path.join(ckpt_dir, "scaler.pkl"))
     stats = load_raw_stats(os.path.join(ckpt_dir, "raw_stats.npz"))
     model_path = os.path.join(ckpt_dir, "glmnet_best.pt")
     state = torch.load(model_path, map_location=device)
-    out_dim = GLMNet.infer_out_dim(state)
-    model = GLMNet(OCCIPITAL_IDX, C=channels, T=time_len, out_dim=out_dim)
+    out_dim = glmnet.infer_out_dim(state)
+    model = glmnet(OCCIPITAL_IDX, C=channels, T=time_len, out_dim=out_dim)
     model.load_state_dict(state)
     model.to(device)
     model.eval()
@@ -94,7 +93,7 @@ def index_to_text(
 
 def majority_vote(
     eeg: np.ndarray,
-    model: GLMNet,
+    model: glmnet,
     scaler,
     stats,
     device: str,
@@ -117,7 +116,7 @@ def majority_vote(
 
 def infer_description(
     eeg: np.ndarray,
-    models: Dict[str, GLMNet],
+    models: Dict[str, glmnet],
     scalers: Dict[str, any],
     stats: Dict[str, tuple],
     device: str,
