@@ -15,6 +15,9 @@ samples we apply a sliding‑window strategy with
 windows of 500 ms with an overlap of 250 ms.
 The resulting tensor has shape `(block, concept, repetition, window, channels,
 time)`.
+The checkpoints provided in this repository were trained using these 500 ms
+windows. Running inference on segments with a different duration, such as the
+`Segmented_1000ms_sw` dataset, will result in size mismatches.
 
 ## Training
 
