@@ -114,6 +114,7 @@ def main():
 
     name_ids = "_".join(s.replace("sub", "") for s in train_subj)
 
+    # Define saving paths
     ckpt_name = args.category
     if args.cluster is not None:
         ckpt_name += f"_cluster{args.cluster}"
@@ -171,7 +172,7 @@ def main():
     label_final_distribution = {int(u): int(c) for u, c in zip(unique_labels, counts_labels)}
     print("Label distribution after formating:", label_final_distribution)
 
-    def load_subject(name: str) -> tuple[np.ndarray, np.ndarray]:
+    def load_subject(name: str):
         subj_raw = np.load(os.path.join(args.raw_dir, f"{name}.npy"))
         subj_raw = subj_raw.reshape(n_blocks, n_concepts * n_rep, n_win, C, T)
         subj_raw = subj_raw.reshape(-1, n_win, C, T)[mask_flat]
@@ -305,7 +306,7 @@ def main():
     state = torch.load(model_path, map_location=device)
     model.load_state_dict(state)
     model.eval()
-
+    
     test_acc = 0
     preds, labels_test = [], []
     with torch.no_grad():

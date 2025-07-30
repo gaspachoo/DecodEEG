@@ -51,6 +51,7 @@ def parse_args():
         type=int,
         help="Cluster index to filter labels (only valid when --category label)",
     )
+    p.add_argument("--model", choices=["glmnet"], default="glmnet")
     p.add_argument("--epochs", type=int, default=500)
     p.add_argument("--bs", type=int, default=100)
     p.add_argument("--lr", type=float, default=1e-4)
@@ -97,7 +98,8 @@ def format_labels(labels: np.ndarray, category: str) -> np.ndarray:
 # ------------------------------ main -------------------------------------
 def main():
     args = parse_args()
-    os.makedirs(args.cache_dir, exist_ok=True)
+    if args.model == 'glmnet':
+        os.makedirs(args.cache_dir, exist_ok=True)
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using device: {device}")
 
@@ -130,25 +132,27 @@ def main():
         args.save_dir,
         "multi",
         str(args.seed),
-        "glmnet",
+        args.model,
         ckpt_name,
     )
     os.makedirs(ckpt_dir, exist_ok=True)
-    glmnet_path = os.path.join(ckpt_dir, "glmnet_best.pt")
+    model_path = os.path.join(ckpt_dir, f"{args.model}_best.pt")
     stats_path = os.path.join(ckpt_dir, "raw_stats.npz")
-    shallownet_path = os.path.join(ckpt_dir, "shallownet.pt")
-    mlpnet_path = os.path.join(ckpt_dir, "mlpnet.pt")
-    scaler_path = os.path.join(ckpt_dir, "scaler.pkl")
+    
+    if args.model == "glmnet":
+        shallownet_path = os.path.join(ckpt_dir, "shallownet.pt")
+        mlpnet_path = os.path.join(ckpt_dir, "mlpnet.pt")
+        scaler_path = os.path.join(ckpt_dir, "scaler.pkl")
 
     sample_raw = np.load(os.path.join(args.raw_dir, f"{train_subj[0]}.npy"))
-    duration_ms = int(re.search(r'_(\d+)ms_', os.path.basename(args.raw_dir)).group(1)) / 1000
-    sample_feat = mlpnet.compute_features(sample_raw.reshape(-1, sample_raw.shape[-2], sample_raw.shape[-1]), win_sec=duration_ms).reshape(
-        *sample_raw.shape[:4], sample_raw.shape[-2], -1
-    )
-
     n_blocks, n_concepts, n_rep, n_win, C, T = sample_raw.shape
     sample_raw = sample_raw.reshape(n_blocks, n_concepts * n_rep, n_win, C, T)
-    sample_feat = sample_feat.reshape(n_blocks, n_concepts * n_rep, n_win, C, -1)
+    
+    if args.model == "glmnet":
+        duration_ms = int(re.search(r'_(\d+)ms_', os.path.basename(args.raw_dir)).group(1)) / 1000
+        sample_feat = mlpnet.compute_features(sample_raw.reshape(-1, C, T), win_sec=duration_ms)
+        sample_feat = sample_feat.reshape(n_blocks, n_concepts * n_rep, n_win, C, -1)
+        feat_dim = sample_feat.shape[-1]
 
     label_path = os.path.join(args.label_dir, f"All_video_{args.category}.npy")
     if args.category == "color_binary" and not os.path.exists(label_path):
@@ -189,26 +193,28 @@ def main():
     label_final_distribution = {int(u): int(c) for u, c in zip(unique_labels, counts_labels)}
     print("Label distribution after formating:", label_final_distribution)
 
-    feat_dim = sample_feat.shape[-1]
-
-    def load_subject(name: str) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def load_subject(name: str):
         subj_raw = np.load(os.path.join(args.raw_dir, f"{name}.npy"))
         subj_raw = subj_raw.reshape(n_blocks, n_concepts * n_rep, n_win, C, T)
         subj_raw = subj_raw.reshape(-1, n_win, C, T)[mask_flat]
         subj_labels = base_labels.copy()
         
-        feat_path = os.path.join(args.cache_dir, f"{name}_{1000*duration_ms}_feat.npy")
-        if os.path.exists(feat_path):
-            subj_feat = np.load(feat_path)
-        else:
-            subj_feat = mlpnet.compute_features(
-                subj_raw.reshape(-1, subj_raw.shape[-2], subj_raw.shape[-1]), win_sec=duration_ms
-            ).reshape(*subj_raw.shape[:4], subj_raw.shape[-2], -1)
-            np.save(feat_path, subj_feat)
-        subj_feat = subj_feat.reshape(n_blocks, n_concepts * n_rep, n_win, C, -1)
-        subj_feat = subj_feat.reshape(-1, n_win, C, feat_dim)[mask_flat]
+        if args.model == "glmnet":
+            feat_path = os.path.join(args.cache_dir, f"{name}_{1000*duration_ms}_feat.npy")
+            if os.path.exists(feat_path):
+                subj_feat = np.load(feat_path)
+            else:
+                subj_feat = mlpnet.compute_features(
+                    subj_raw.reshape(-1, subj_raw.shape[-2], subj_raw.shape[-1]), win_sec=duration_ms
+                ).reshape(*subj_raw.shape[:4], subj_raw.shape[-2], -1)
+                np.save(feat_path, subj_feat)
+            subj_feat = subj_feat.reshape(n_blocks, n_concepts * n_rep, n_win, C, -1)
+            subj_feat = subj_feat.reshape(-1, n_win, C, feat_dim)[mask_flat]
+            
+            return subj_raw, subj_feat, subj_labels
         
-        return subj_raw, subj_feat, subj_labels
+        else:
+            return subj_raw, subj_labels
 
     def concat_subjects(names: list[str]):
         X_list, F_list, y_list = [], [], []
@@ -346,9 +352,11 @@ def main():
         if val_acc > best_val:
             best_val = val_acc
             os.makedirs(ckpt_dir, exist_ok=True)
-            torch.save(model.state_dict(), glmnet_path)
-            torch.save(model.raw_global.state_dict(), shallownet_path)
-            torch.save(model.freq_local.state_dict(), mlpnet_path)
+            torch.save(model.state_dict(), model_path)
+            
+            if args.model == "glmnet":
+                torch.save(model.raw_global.state_dict(), shallownet_path)
+                torch.save(model.freq_local.state_dict(), mlpnet_path)
             tqdm.write(f"New best model saved at epoch {ep} with val_acc={val_acc:.3f}")
 
         if args.use_wandb:
@@ -363,9 +371,10 @@ def main():
                 }
             )
 
-    state = torch.load(glmnet_path, map_location=device)
+    state = torch.load(model_path, map_location=device)
     model.load_state_dict(state)
     model.eval()
+    
     test_acc = 0
     preds, labels_test = [], []
     with torch.no_grad():
