@@ -75,6 +75,11 @@ def load_model(
         scaler = load_scaler(os.path.join(ckpt_dir, "scaler.pkl"))
         model_path = os.path.join(ckpt_dir, "glmnet_best.pt")
         state = torch.load(model_path, map_location=device)
+        ckpt_time_len = glmnet.infer_time_len(state)
+        if ckpt_time_len != time_len:
+            raise ValueError(
+                f"EEG window length {time_len} does not match checkpoint (expected {ckpt_time_len})."
+            )
         out_dim = glmnet.infer_out_dim(state)
         feat_dim = glmnet.infer_feat_dim(state, len(OCCIPITAL_IDX))
         model = glmnet(

@@ -82,6 +82,11 @@ def generate_all_embeddings(
         num_channels = RAW_SW.shape[-2]
         state = torch.load(model_path, map_location=device)
         if model_type == "glmnet":
+            ckpt_time_len = glmnet.infer_time_len(state)
+            if ckpt_time_len != time_len:
+                raise ValueError(
+                    f"EEG window length {time_len} does not match checkpoint (expected {ckpt_time_len})."
+                )
             out_dim = glmnet.infer_out_dim(state)
             feat_dim = glmnet.infer_feat_dim(state, len(OCCIPITAL_IDX))
             model = glmnet(

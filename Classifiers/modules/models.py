@@ -199,6 +199,19 @@ class glmnet(nn.Module):
                 return in_features // occipital_len
         raise KeyError("Cannot infer feature dimension from checkpoint")
 
+    @staticmethod
+    def infer_time_len(state: dict) -> int:
+        """Infer ``T`` (window length) from a checkpoint state dict."""
+        for key in (
+            "raw_global.out.weight",
+            "module.raw_global.out.weight",
+        ):
+            if key in state:
+                in_features = state[key].shape[1]
+                n_samples = in_features // 40
+                return (n_samples - 1) * 5 + 75
+        raise KeyError("Cannot infer time length from checkpoint")
+
     def forward(self, x, return_features: bool = False):
         """Forward pass of the network.
 
