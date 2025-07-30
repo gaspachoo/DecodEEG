@@ -98,11 +98,21 @@ if __name__ == "__main__":
     parser.add_argument('--raw_dir', default="./data/Preprocessing/Segmented_500ms_sw", help='directory of pre-windowed raw EEG .npy files')
     parser.add_argument('--subject_prefix', default='sub3', help='prefix of subject files to process')
     parser.add_argument('--checkpoint_path', help='path to GLMNet checkpoint')
+    parser.add_argument('--train_mode', choices=['ordered', 'shuffle'], default='ordered', help='training mode for mono model')
+    parser.add_argument('--seed', type=int, default=0, help='Training seed')
     parser.add_argument('--output_dir', default="./data/eeg_segments", help='where to save projected embeddings')
     args = parser.parse_args()
 
     if args.checkpoint_path is None:
-        args.checkpoint_path = f"./EEGtoVideo/checkpoints/glmnet/{args.subject_prefix}_label_cluster"
+        args.checkpoint_path = os.path.join(
+            "./Checkpoints",
+            "mono",
+            args.subject_prefix,
+            args.train_mode,
+            str(args.seed),
+            "glmnet",
+            "label_cluster",
+        )
 
     generate_all_embeddings(
         args.raw_dir,
