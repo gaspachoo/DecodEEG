@@ -27,7 +27,7 @@ Checkpoints are saved under directories named after their label categories.
 During inference each window of a 2‑second segment is passed through the
 selected model.  Predictions from the seven windows are combined using a
 majority vote to obtain one label per category.  The script
-`GLMNet/multi_inference.py` loads multiple checkpoints, performs this voting
+`Classifiers/multi_inference.py` loads multiple checkpoints, performs this voting
 procedure and maps the predicted indices to text via
 `label_mappings.json`.  The individual pieces are merged into a single English
 phrase like:
@@ -42,7 +42,7 @@ text-to-video system.
 ### Example usage
 
 ```
-python GLMNet/multi_inference.py \
+python Classifiers/multi_inference.py \
   --eeg path/to/segmented_eeg.npy \
   --blocks 0 1 \
   --concepts 0 1 \

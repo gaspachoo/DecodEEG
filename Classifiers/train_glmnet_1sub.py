@@ -24,7 +24,7 @@ from Classifiers.modules.models import mlpnet, glmnet
 
 
 # -------- W&B -------------------------------------------------------------
-PROJECT_NAME = "eeg2video-GLMNetv4.1-1sub"  # <‑‑ change if you need another project
+PROJECT_NAME = "eeg2video-classifiersv4.1-1sub"  # <‑‑ change if you need another project
 
 # ------------------------------ constants ---------------------------------
 OCCIPITAL_IDX = list(range(50, 62))  # 12 occipital channels
@@ -50,7 +50,7 @@ def parse_args():
         ],
         help="Label file",
     )
-    p.add_argument("--save_dir", default="./GLMNet/checkpoints/")
+    p.add_argument("--save_dir", default="./Classifiers/checkpoints/")
     p.add_argument(
         "--cluster",
         type=int,

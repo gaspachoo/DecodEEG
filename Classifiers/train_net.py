@@ -18,7 +18,7 @@ from Classifiers.modules.models import deepnet, eegnet
 
 
 # -------- W&B -------------------------------------------------------------
-PROJECT_NAME = "eeg2video-GLMNetv4"  # <‑‑ change if you need another project
+PROJECT_NAME = "eeg2video-classifiersv4"  # <‑‑ change if you need another project
 
 
 
@@ -42,7 +42,7 @@ def parse_args():
         ],
         help="Label file",
     )
-    p.add_argument("--save_dir", default="./GLMNet/checkpoints_net/")
+    p.add_argument("--save_dir", default="./Classifiers/checkpoints_net/")
     p.add_argument(
         "--cluster",
         type=int,

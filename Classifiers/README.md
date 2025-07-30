@@ -1,6 +1,6 @@
-# GLMNet Utilities
+# Classifiers Utilities
 
-This directory contains scripts used to train and run the GLMNet EEG encoder.
+This directory contains scripts used to train and run the Classifiers EEG encoder.
 
 ## Label mappings
 

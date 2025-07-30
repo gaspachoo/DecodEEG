@@ -1,10 +1,10 @@
-# Makefile to train GLMNet checkpoints
+# Makefile to train Classifiers checkpoints
 
 # Default Python interpreter
 PYTHON ?= python
 
 # Training script relative path
-TRAIN_SCRIPT := GLMNet/train_glmnet.py
+TRAIN_SCRIPT := Classifiers/train_Classifiers.py
 
 # Categories excluding raw label which is trained per cluster
 CATEGORIES := color color_binary face_appearance human_appearance label_cluster obj_number optical_flow_score
@@ -18,10 +18,10 @@ MODEL ?= deepnet
 SPLIT_SEED ?= 0
 
 # Directory for checkpoints
-CKPT_ROOT := GLMNet/checkpoints
-CACHE_DIR := GLMNet/cache
-CKPT_ROOT_NET := GLMNet/checkpoints_net
-TRAIN_NET_SCRIPT := GLMNet/train_net.py
+CKPT_ROOT := Classifiers/checkpoints
+CACHE_DIR := Classifiers/cache
+CKPT_ROOT_NET := Classifiers/checkpoints_net
+TRAIN_NET_SCRIPT := Classifiers/train_net.py
 
 # Directory name matching the default split with seed 0
 SUB_DIR := sub_13_9_15_11_3_6_12_2_19_17_1_20_16
@@ -30,7 +30,7 @@ SUB_DIR := sub_13_9_15_11_3_6_12_2_19_17_1_20_16
 checkpoints:
 	@set -e; \
 	for c in $(CATEGORIES); do \
-			ckpt="$(CKPT_ROOT)/$(SUB_DIR)/$$c/glmnet_best.pt"; \
+			ckpt="$(CKPT_ROOT)/$(SUB_DIR)/$$c/Classifiers_best.pt"; \
                        if [ ! -f $$ckpt ]; then \
                                        $(PYTHON) $(TRAIN_SCRIPT) --category $$c --seed $(SPLIT_SEED) --cache_dir $(CACHE_DIR) $(WANDB_ARG); \
 			else \
@@ -38,7 +38,7 @@ checkpoints:
 			fi; \
 	done; \
 	for cl in $(LABEL_CLUSTERS); do \
-			ckpt="$(CKPT_ROOT)/$(SUB_DIR)/label_cluster$$cl/glmnet_best.pt"; \
+			ckpt="$(CKPT_ROOT)/$(SUB_DIR)/label_cluster$$cl/Classifiers_best.pt"; \
                        if [ ! -f $$ckpt ]; then \
                                        $(PYTHON) $(TRAIN_SCRIPT) --category label --cluster $$cl --seed $(SPLIT_SEED) --cache_dir $(CACHE_DIR) $(WANDB_ARG); \
 			else \
@@ -46,7 +46,7 @@ checkpoints:
 			fi; \
 	done
 
-TRAIN_1SUB_SCRIPT := GLMNet/train_glmnet_1sub.py
+TRAIN_1SUB_SCRIPT := Classifiers/train_Classifiers_1sub.py
 SUBJECT_TO_TRAIN := sub3
 .PHONY: checkpoints_1sub
 checkpoints_1sub:
