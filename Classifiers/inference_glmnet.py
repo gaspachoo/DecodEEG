@@ -41,10 +41,10 @@ def inf_glmnet(model, scaler, raw_sw, stats, device="cuda"):
     embeddings = []
     with torch.no_grad():
         for raw_seg, feat_seg in zip(raw_flat, feat_scaled):
-            x_raw = torch.tensor(raw_seg, dtype=torch.float32).unsqueeze(0).unsqueeze(0).to(device)
-            x_feat = torch.tensor(feat_seg, dtype=torch.float32).unsqueeze(0).to(device)
+            x = np.concatenate([raw_seg, feat_seg], axis=-1)
+            x = torch.tensor(x, dtype=torch.float32).unsqueeze(0).to(device)
 
-            z = model(x_raw, x_feat, return_features=True)
+            z = model(x, return_features=True)
             embeddings.append(z.squeeze(0).cpu().numpy())
 
     return np.stack(embeddings)  # shape: (N_segments, emb_dim // 2)

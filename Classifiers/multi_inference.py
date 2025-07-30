@@ -52,15 +52,14 @@ def load_label_mappings(path: str) -> Dict[str, Dict[int, str]]:
     return mappings
 
 
-def prepare_input(eeg: np.ndarray, stats, scaler) -> tuple[torch.Tensor, torch.Tensor]:
+def prepare_input(eeg: np.ndarray, stats, scaler) -> torch.Tensor:
     """Normalize raw EEG and compute scaled features."""
     raw = eeg[np.newaxis, ...].astype(np.float32)
     feat = mlpnet.compute_features(raw)
     raw = normalize_raw(raw, stats[0], stats[1])
     feat = standard_scale_features(feat, scaler=scaler)
-    x_raw = torch.tensor(raw, dtype=torch.float32).unsqueeze(0)
-    x_feat = torch.tensor(feat, dtype=torch.float32)
-    return x_raw, x_feat
+    x = np.concatenate([raw, feat], axis=-1)
+    return torch.tensor(x, dtype=torch.float32)
 
 
 def load_model(ckpt_dir: str, channels: int, time_len: int, device: str) -> tuple[glmnet, any, tuple[np.ndarray, np.ndarray]]:
@@ -101,11 +100,9 @@ def majority_vote(
     """Return the most common prediction index and its confidence."""
     preds = []
     for win in eeg:
-        x_raw, x_feat = prepare_input(win, stats, scaler)
-        x_raw = x_raw.to(device)
-        x_feat = x_feat.to(device)
+        x = prepare_input(win, stats, scaler).to(device)
         with torch.no_grad():
-            logits = model(x_raw, x_feat)
+            logits = model(x)
             preds.append(int(logits.argmax(dim=-1).item()))
     values, counts = np.unique(preds, return_counts=True)
     best_idx = counts.argmax()
