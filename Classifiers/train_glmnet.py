@@ -98,62 +98,51 @@ def format_labels(labels: np.ndarray, category: str) -> np.ndarray:
 # ------------------------------ main -------------------------------------
 def main():
     args = parse_args()
-    if args.model == 'glmnet':
-        os.makedirs(args.cache_dir, exist_ok=True)
+    
+    os.makedirs(args.cache_dir, exist_ok=True)
+
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using device: {device}")
 
-    all_subj = sorted(
-        f[:-4] for f in os.listdir(args.raw_dir) if f.startswith("sub") and f.endswith(".npy")
-    )
-
+    # ------------------------------------------------------------------ 1
+    # Subject discovery and split
+    # ---------------------------------------------------------------------
+    all_subj = sorted(f[:-4] for f in os.listdir(args.raw_dir)
+                      if f.startswith("sub") and f.endswith(".npy"))
     if args.n_subj > len(all_subj):
         raise ValueError("Not enough subject files in raw_dir")
 
     ckpt_seed_dir = os.path.join(args.save_dir, "multi", str(args.seed))
     train_subj, val_subj, test_subj = subject_split(
-        args.seed,
-        all_subj,
-        ckpt_seed_dir=ckpt_seed_dir,
-        n_select=args.n_subj,
+        args.seed, all_subj, ckpt_seed_dir=ckpt_seed_dir, n_select=args.n_subj
     )
-
     print("Training subjects:", train_subj)
     print("Validation subjects:", val_subj)
-    print("Test subjects:", test_subj)
+    print("Test subjects:",      test_subj)
 
-    name_ids = "_".join(s.replace("sub", "") for s in train_subj)
-
-    # Define saving paths
-    ckpt_name = args.category
-    if args.cluster is not None:
-        ckpt_name += f"_cluster{args.cluster}"
-    ckpt_dir = os.path.join(
-        args.save_dir,
-        "multi",
-        str(args.seed),
-        args.model,
-        ckpt_name,
-    )
+    # ------------------------------------------------------------------ 2
+    # Persistent paths & global shapes
+    # ---------------------------------------------------------------------
+    ckpt_name = args.category + (f"_cluster{args.cluster}" if args.cluster is not None else "")
+    ckpt_dir  = os.path.join(args.save_dir, "multi", str(args.seed), args.model, ckpt_name)
     os.makedirs(ckpt_dir, exist_ok=True)
     model_path = os.path.join(ckpt_dir, f"{args.model}_best.pt")
     stats_path = os.path.join(ckpt_dir, "raw_stats.npz")
-    
     if args.model == "glmnet":
         shallownet_path = os.path.join(ckpt_dir, "shallownet.pt")
         mlpnet_path = os.path.join(ckpt_dir, "mlpnet.pt")
         scaler_path = os.path.join(ckpt_dir, "scaler.pkl")
 
+    # infer basic dims from one file
     sample_raw = np.load(os.path.join(args.raw_dir, f"{train_subj[0]}.npy"))
     n_blocks, n_concepts, n_rep, n_win, C, T = sample_raw.shape
-    sample_raw = sample_raw.reshape(n_blocks, n_concepts * n_rep, n_win, C, T)
-    
-    if args.model == "glmnet":
-        duration_ms = int(re.search(r'_(\d+)ms_', os.path.basename(args.raw_dir)).group(1)) / 1000
-        sample_feat = mlpnet.compute_features(sample_raw.reshape(-1, C, T), win_sec=duration_ms)
-        sample_feat = sample_feat.reshape(n_blocks, n_concepts * n_rep, n_win, C, -1)
-        feat_dim = sample_feat.shape[-1]
 
+    duration_ms = int(re.search(r"_(\d+)ms_", os.path.basename(args.raw_dir)).group(1)) / 1000 \
+                  if args.model == "glmnet" else None
+
+    # ---------------------------------------------------------------------
+    # 3) Labels & masks
+    # ---------------------------------------------------------------------
     label_path = os.path.join(args.label_dir, f"All_video_{args.category}.npy")
     if args.category == "color_binary" and not os.path.exists(label_path):
         label_path = os.path.join(args.label_dir, "All_video_color.npy")
@@ -162,14 +151,10 @@ def main():
     if labels_raw.shape[1] == n_concepts:
         labels_raw = np.repeat(labels_raw[:, :, None], n_rep, axis=2).reshape(n_blocks, n_concepts * n_rep)
 
-    if args.category == "color":
-        mask_2d = labels_raw != 0
-    else:
-        mask_2d = np.ones_like(labels_raw, dtype=bool)
+    mask_2d = (labels_raw != 0) if args.category == "color" else np.ones_like(labels_raw, bool)
 
     if args.cluster is not None:
-        cluster_path = os.path.join(args.label_dir, "All_video_label_cluster.npy")
-        clusters = np.load(cluster_path)
+        clusters = np.load(os.path.join(args.label_dir, "All_video_label_cluster.npy"))
         if clusters.shape[1] == n_concepts:
             clusters = np.repeat(clusters[:, :, None], n_rep, axis=2).reshape(n_blocks, n_concepts * n_rep)
         mask_2d &= clusters == args.cluster
@@ -192,85 +177,145 @@ def main():
     num_unique_labels = len(unique_labels)
     label_final_distribution = {int(u): int(c) for u, c in zip(unique_labels, counts_labels)}
     print("Label distribution after formating:", label_final_distribution)
+    
+    # ---------------------------------------------------------------------
+    # 4) Helpers: load one subject   ➜  returns flattened windows + labels + ids
+    # ---------------------------------------------------------------------
+    def _load_or_cache_raw(name: str) -> np.ndarray:
+        """
+        Load the subject’s flattened raw windows from cache if available;
+        otherwise build them from the source file, save to cache, and return.
+
+        Returns
+        -------
+        np.ndarray
+            Shape (samples·W, C, T)  — raw EEG windows, still un-normalised.
+        """
+        raw_cache = os.path.join(args.cache_dir, f"{name}_raw.npy")
+
+        if os.path.exists(raw_cache):
+            # Use memory mapping for lazy loading; avoids copying everything into RAM
+            return np.load(raw_cache, mmap_mode="r")
+
+        # --- Build from original file ---
+        raw = np.load(os.path.join(args.raw_dir, f"{name}.npy"))
+        raw = raw.reshape(n_blocks, n_concepts * n_rep, n_win, C, T)
+        raw = raw.reshape(-1, n_win, C, T)[mask_flat]          # (samples, W, C, T)
+        X_flat = raw.reshape(-1, C, T).astype(np.float32)       # (samples·W, C, T)
+
+        # Save to cache for future runs
+        np.save(raw_cache, X_flat)
+        return X_flat
+
 
     def load_subject(name: str):
-        subj_raw = np.load(os.path.join(args.raw_dir, f"{name}.npy"))
-        subj_raw = subj_raw.reshape(n_blocks, n_concepts * n_rep, n_win, C, T)
-        subj_raw = subj_raw.reshape(-1, n_win, C, T)[mask_flat]
-        subj_labels = base_labels.copy()
-        
-        if args.model == "glmnet":
-            feat_path = os.path.join(args.cache_dir, f"{name}_{1000*duration_ms}_feat.npy")
-            if os.path.exists(feat_path):
-                subj_feat = np.load(feat_path)
-            else:
-                subj_feat = mlpnet.compute_features(
-                    subj_raw.reshape(-1, subj_raw.shape[-2], subj_raw.shape[-1]), win_sec=duration_ms
-                ).reshape(*subj_raw.shape[:4], subj_raw.shape[-2], -1)
-                np.save(feat_path, subj_feat)
-            subj_feat = subj_feat.reshape(n_blocks, n_concepts * n_rep, n_win, C, -1)
-            subj_feat = subj_feat.reshape(-1, n_win, C, feat_dim)[mask_flat]
-            
-            return subj_raw, subj_feat, subj_labels
-        
-        else:
-            return subj_raw, subj_labels
+        """
+        Returns (X_flat, y_flat, ids) for a given subject.
+
+        Parameters
+        ----------
+        name : str
+            Subject identifier, e.g. "sub1".
+
+        Returns
+        -------
+        X_flat : np.ndarray
+            Raw windows, shape (samples·W, C, T), still un-normalised.
+        y_flat : np.ndarray
+            Corresponding labels, shape (samples·W,).
+        ids : np.ndarray
+            Subject ID repeated for each sample, shape (samples·W,).
+        """
+        X_flat = _load_or_cache_raw(name)
+
+        # Labels are identical across subjects and already masked by `mask_flat`
+        y_flat = base_labels.reshape(-1)                        # (samples·W,)
+        return X_flat, y_flat
 
     def concat_subjects(names: list[str]):
-        X_list, F_list, y_list = [], [], []
+        X_list, y_list, slice_map = [], [], {}
+        offset = 0
         for n in names:
-            print("Processing subject:", n)
-            xr, xf, yl = load_subject(n)
-            X_list.append(xr)
-            F_list.append(xf)
-            y_list.append(yl)
-        if not X_list:
-            return np.empty((0, n_win, C, T)), np.empty((0, n_win, C, feat_dim)), np.empty((0, n_win), dtype=np.int64)
-        return np.concatenate(X_list), np.concatenate(F_list), np.concatenate(y_list)
+            xf, yf = load_subject(n)
+            nsamp       = len(yf)
+            slice_map[n] = slice(offset, offset + nsamp)    # keep track for caching
+            offset += nsamp
 
-    print("Concatenating subjects...")
-    
-    X_train, F_train, y_train = concat_subjects(train_subj)
-    X_val, F_val, y_val = concat_subjects(val_subj)
-    X_test, F_test, y_test = concat_subjects(test_subj)
+            X_list.append(xf)
+            y_list.append(yf)
+        if not X_list:                                       # empty split
+            return np.empty((0, C, T)), np.empty((0,), np.int64), {}
+        return (np.concatenate(X_list),
+                np.concatenate(y_list),
+                slice_map)
 
-    # Flatten the window dimension so each row is one EEG segment
-    X_train = X_train.reshape(-1, C, T)
-    X_val = X_val.reshape(-1, C, T)
-    X_test = X_test.reshape(-1, C, T)
+    print("Loading & concatenating subjects…")
+    X_train, y_train, slice_train = concat_subjects(train_subj)
+    X_val,   y_val,   slice_val   = concat_subjects(val_subj)
+    X_test,  y_test,  slice_test  = concat_subjects(test_subj)
     
-    y_train = y_train.reshape(-1)
-    y_val = y_val.reshape(-1)
-    y_test = y_test.reshape(-1)
-    
-    F_train = F_train.reshape(-1, C, feat_dim)
-    F_val = F_val.reshape(-1, C, feat_dim)
-    F_test = F_test.reshape(-1, C, feat_dim)
+    X_train = X_train.reshape(-1, C, T)      # (N_train, C, T)
+    X_val   = X_val.reshape(-1, C, T)
+    X_test  = X_test.reshape(-1, C, T)
 
-    # Normalization parameters from training data
+    # ------------------------------------------------------------------ 5
+    # Feature extraction with per-subject cache
+    # ---------------------------------------------------------------------
+    if args.model == "glmnet":
+        def extract_or_load(X_all, sl_map):
+            """Return feature matrix aligned to X_all, caching per subject."""
+            parts, feat_dim = [], None
+            for sid in sl_map:  # guaranteed order == concat order
+                sl   = sl_map[sid]
+                fpth = os.path.join(
+                    args.cache_dir, f"{sid}_{duration_ms*1000:.1f}_feat.npy"
+                )
+                if os.path.exists(fpth):
+                    feat = np.load(fpth)
+                else:
+                    feat = mlpnet.compute_features(X_all[sl], win_sec=duration_ms)
+                    np.save(fpth, feat)
+                if feat_dim is None:
+                    feat_dim = feat.shape[2]
+                parts.append(feat)
+            return np.concatenate(parts), feat_dim
+
+        print("→ Features (train)…")
+        F_train, feat_dim = extract_or_load(X_train, slice_train)
+        print("→ Features (val)…")
+        F_val, _          = extract_or_load(X_val,   slice_val)
+        print("→ Features (test)…")
+        F_test, _         = extract_or_load(X_test,  slice_test)
+    else:
+        F_train = F_val = F_test = None
+        feat_dim = 0   # placeholder
+
+    # ------------------------------------------------------------------ 6
+    # Normalisation & scaling
+    # ---------------------------------------------------------------------
     raw_mean, raw_std = compute_raw_stats(X_train)
     X_train = normalize_raw(X_train, raw_mean, raw_std)
-    X_val = normalize_raw(X_val, raw_mean, raw_std)
-    X_test = normalize_raw(X_test, raw_mean, raw_std)
+    X_val   = normalize_raw(X_val,   raw_mean, raw_std)
+    X_test  = normalize_raw(X_test,  raw_mean, raw_std)
 
-    # Feature scaling
-    F_train_scaled, scaler = standard_scale_features(F_train, return_scaler=True)
-    F_val_scaled = standard_scale_features(F_val, scaler=scaler)
-    F_test_scaled = standard_scale_features(F_test, scaler=scaler)
+    if args.model == "glmnet":
+        F_train_scaled, scaler = standard_scale_features(F_train, return_scaler=True)
+        F_val_scaled           = standard_scale_features(F_val,  scaler=scaler)
+        F_test_scaled          = standard_scale_features(F_test, scaler=scaler)
 
-    # Concatenate normalized raw EEG with scaled spectral features
-    X_train = np.concatenate([X_train, F_train_scaled], axis=2)
-    X_val = np.concatenate([X_val, F_val_scaled], axis=2)
-    X_test = np.concatenate([X_test, F_test_scaled], axis=2)
+        X_train = np.concatenate([X_train, F_train_scaled], axis=2)
+        X_val   = np.concatenate([X_val,   F_val_scaled],   axis=2)
+        X_test  = np.concatenate([X_test,  F_test_scaled],  axis=2)
 
-    # Save preprocessing objects
-    with open(scaler_path, "wb") as f:
-        pickle.dump(scaler, f)
+        with open(scaler_path, "wb") as f:
+            pickle.dump(scaler, f)
     np.savez(stats_path, mean=raw_mean, std=raw_std)
 
-    # DataLoaders built from concatenated features
+    # ---------------------------------------------------------------------
+    # 7) TensorDatasets & DataLoaders
+    # ---------------------------------------------------------------------
     ds_train = TensorDataset(
-        torch.tensor(X_train, dtype=torch.float32).unsqueeze(1),
+        torch.tensor(X_train, dtype=torch.float32).unsqueeze(1),   # (N,1,C,feat)
         torch.tensor(y_train),
     )
     ds_val = TensorDataset(
@@ -283,9 +328,9 @@ def main():
     )
 
     dl_train = DataLoader(ds_train, args.bs, shuffle=True)
-    dl_val = DataLoader(ds_val, args.bs)
-    dl_test = DataLoader(ds_test, args.bs)
-
+    dl_val   = DataLoader(ds_val,   args.bs)
+    dl_test  = DataLoader(ds_test,  args.bs)
+    
     model = glmnet(
         OCCIPITAL_IDX,
         C=C,
@@ -306,7 +351,7 @@ def main():
     criterion = nn.CrossEntropyLoss()
 
     if args.use_wandb:
-        wandb.init(project=PROJECT_NAME, name=f"sub_{name_ids}_{ckpt_name}_glmnet", config=vars(args))
+        wandb.init(project=PROJECT_NAME, name=f"seed_{args.seed}_{ckpt_name}_{args.model}", config=vars(args))
         wandb.watch(model, log="all")
 
     best_val = 0.0
