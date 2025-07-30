@@ -76,7 +76,14 @@ def load_model(
         model_path = os.path.join(ckpt_dir, "glmnet_best.pt")
         state = torch.load(model_path, map_location=device)
         out_dim = glmnet.infer_out_dim(state)
-        model = glmnet(OCCIPITAL_IDX, C=channels, T=time_len, out_dim=out_dim)
+        feat_dim = glmnet.infer_feat_dim(state, len(OCCIPITAL_IDX))
+        model = glmnet(
+            OCCIPITAL_IDX,
+            C=channels,
+            T=time_len,
+            feat_dim=feat_dim,
+            out_dim=out_dim,
+        )
     else:
         scaler = None
         model_path = os.path.join(ckpt_dir, f"{model_type}_best.pt")

@@ -23,6 +23,8 @@ predicted class indices from each checkpoint to their textual
 descriptions.  The script infers the label category from the final directory
 name of each checkpoint path. Any of the supported models can be chosen via
 ``--model``.
+The ``glmnet`` model automatically infers the feature dimension from the
+checkpoint so no additional argument is required.
 
 Example usage:
 
