@@ -15,7 +15,7 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 from Classifiers.modules.utils import standard_scale_features, compute_raw_stats, normalize_raw, subject_split
-from Classifiers.modules.models import mlpnet, glmnet
+from Classifiers.modules.models import mlpnet, glmnet, deepnet, eegnet
 
 
 # -------- W&B -------------------------------------------------------------
@@ -51,7 +51,7 @@ def parse_args():
         type=int,
         help="Cluster index to filter labels (only valid when --category label)",
     )
-    p.add_argument("--model", choices=["glmnet"], default="glmnet")
+    p.add_argument("--model", choices=["glmnet","eegnet","deepnet"], default="glmnet")
     p.add_argument("--epochs", type=int, default=500)
     p.add_argument("--bs", type=int, default=100)
     p.add_argument("--lr", type=float, default=1e-4)
@@ -331,7 +331,14 @@ def main():
     dl_val   = DataLoader(ds_val,   args.bs)
     dl_test  = DataLoader(ds_test,  args.bs)
     
-    model = glmnet(OCCIPITAL_IDX,C=C,T=T,feat_dim=feat_dim,out_dim=num_unique_labels).to(device)
+    if args.model == "glmnet":
+        model = glmnet(OCCIPITAL_IDX,C=C,T=T,feat_dim=feat_dim,out_dim=num_unique_labels).to(device)
+    elif args.model == "eegnet" or args.model == "deepnet":
+        model_cls = deepnet if args.model == "deepnet" else eegnet
+        model = model_cls(out_dim=num_unique_labels, C=C, T=T).to(device)
+    else:
+        raise ValueError(f"Unknown model: {args.model}. Must be one of: glmnet, eegnet, deepnet.")
+    
     opt = optim.Adam(model.parameters(), lr=args.lr)
 
     if args.scheduler == "reducelronplateau":
