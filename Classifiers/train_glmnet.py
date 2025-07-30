@@ -331,13 +331,7 @@ def main():
     dl_val   = DataLoader(ds_val,   args.bs)
     dl_test  = DataLoader(ds_test,  args.bs)
     
-    model = glmnet(
-        OCCIPITAL_IDX,
-        C=C,
-        T=T,
-        feat_dim=feat_dim,
-        out_dim=num_unique_labels,
-    ).to(device)
+    model = glmnet(OCCIPITAL_IDX,C=C,T=T,feat_dim=feat_dim,out_dim=num_unique_labels).to(device)
     opt = optim.Adam(model.parameters(), lr=args.lr)
 
     if args.scheduler == "reducelronplateau":
