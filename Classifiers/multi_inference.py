@@ -62,7 +62,8 @@ def prepare_input(eeg: np.ndarray, stats, scaler, model_type: str) -> torch.Tens
         x = np.concatenate([raw, feat], axis=-1)
     else:
         x = raw
-    return torch.tensor(x, dtype=torch.float32)
+    # Return tensor with batch and channel dimensions
+    return torch.tensor(x, dtype=torch.float32).unsqueeze(1)
 
 
 def load_model(

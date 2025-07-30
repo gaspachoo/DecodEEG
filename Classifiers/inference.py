@@ -40,7 +40,13 @@ def inf_model(model, model_type, raw_sw, stats, scaler=None, device="cuda"):
     outputs = []
     with torch.no_grad():
         for x in input_flat:
-            t = torch.tensor(x, dtype=torch.float32).unsqueeze(0).to(device)
+            # Add batch and channel dimensions for convolutional models
+            t = (
+                torch.tensor(x, dtype=torch.float32)
+                .unsqueeze(0)
+                .unsqueeze(1)
+                .to(device)
+            )
             if model_type == "glmnet":
                 out = model(t, return_features=True)
             else:
