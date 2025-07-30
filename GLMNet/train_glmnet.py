@@ -374,13 +374,6 @@ def main():
             )
 
     model = GLMNet.load_from_checkpoint(glmnet_path, OCCIPITAL_IDX, num_channels, time_len, device=device)
-
-    scaler = load_scaler(scaler_path)
-    raw_mean, raw_std = load_raw_stats(stats_path)
-
-    # ``X_test`` and ``F_test_scaled`` were already prepared, this shows how to
-    # reload preprocessing objects when running evaluation separately.
-
     test_acc = 0
     preds, labels_test = [], []
     with torch.no_grad():
