@@ -78,21 +78,6 @@ def parse_args():
     )
     return p.parse_args()
 
-
-def reshape_labels(labels: np.ndarray, n_win: int) -> np.ndarray:
-    """Expand labels to match the EEG window dimension."""
-    if labels.shape[1] == 40: # (7,40)
-        labels = labels[..., None, None]
-        labels = np.repeat(labels, 5, axis=2)
-    else:
-        assert labels.shape[1] == 200, "Labels must be (7,40) or (7,200)"
-        labels = labels.reshape(-1, 40, 5)[..., None]
-
-    labels = np.repeat(labels, n_win, axis=3)
-    assert labels.shape[:3] == (7, 40, 5) and labels.shape[3] == n_win, "Label shape mismatch after expansion"
-    return labels
-
-
 def format_labels(labels: np.ndarray, category: str) -> np.ndarray:
     match category:
         case "color":
