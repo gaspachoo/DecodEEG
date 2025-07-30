@@ -13,7 +13,7 @@ project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(_
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from GLMNet.modules.utils_glmnet import compute_raw_stats, normalize_raw
+from GLMNet.modules.utils import compute_raw_stats, normalize_raw
 from GLMNet.modules.models import deepnet, eegnet
 
 

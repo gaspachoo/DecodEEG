@@ -17,7 +17,7 @@ from typing import Dict, List, Tuple
 import numpy as np
 import torch
 
-from GLMNet.modules.utils_glmnet import (
+from GLMNet.modules.utils import (
     load_scaler,
     load_raw_stats,
     normalize_raw,

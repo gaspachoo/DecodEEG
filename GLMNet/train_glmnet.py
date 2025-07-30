@@ -15,7 +15,7 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 
-from GLMNet.modules.utils_glmnet import (
+from GLMNet.modules.utils import (
     standard_scale_features,
     compute_raw_stats,
     normalize_raw,
