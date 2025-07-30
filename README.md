@@ -20,9 +20,19 @@ time)`.
 
 Any of the supported encoders can be trained on these windows.  Models predict
 class labels for categories such as *color*, *label cluster* or *object number*.
-Checkpoints are stored under `Checkpoints/<mode>/<seed>/<model>/<category>`.
+Checkpoints are stored under `Classifiers/checkpoints/<mode>/<seed>/<model>/<category>`.
 For single-subject runs the hierarchy becomes
-`Checkpoints/mono/<subject>/<ordered|shuffle>/<seed>/<model>/<category>`.
+`Classifiers/checkpoints/mono/<subject>/<ordered|shuffle>/seed<seed>/<model>/<category>`.
+
+Training across all categories can be automated with the Makefile:
+
+```bash
+# Multi-subject
+make checkpoints_multi SEED=0 MODEL=glmnet use_wandb=1
+
+# Mono-subject (ordered or shuffle)
+make checkpoints_mono SUBJECT=sub3 SEED=0 MODEL=glmnet shuffle=1
+```
 
 ## Classification and text generation
 
