@@ -157,9 +157,7 @@ def main():
         uniq = np.sort(np.unique(base_labels))
         mapping = {v: i for i, v in enumerate(uniq)}
         base_labels = np.vectorize(mapping.get)(base_labels)
-        print(
-            f"Cluster {args.cluster}: mapping original labels {uniq.tolist()} -> {list(mapping.values())}"
-        )
+        print(f"Cluster {args.cluster}: mapping original labels {uniq.tolist()} -> {list(mapping.values())}")
 
     unique_labels, counts_labels = np.unique(base_labels, return_counts=True)
     num_unique_labels = len(unique_labels)
@@ -203,9 +201,18 @@ def main():
 
     np.savez(stats_path, mean=raw_mean, std=raw_std)
 
-    ds_train = TensorDataset(torch.tensor(X_train, dtype=torch.float32).unsqueeze(1), torch.tensor(y_train))
-    ds_val = TensorDataset(torch.tensor(X_val, dtype=torch.float32).unsqueeze(1), torch.tensor(y_val))
-    ds_test = TensorDataset(torch.tensor(X_test, dtype=torch.float32).unsqueeze(1), torch.tensor(y_test))
+    ds_train = TensorDataset(
+        torch.tensor(X_train, dtype=torch.float32).unsqueeze(1),
+        torch.tensor(y_train),
+    )
+    ds_val = TensorDataset(
+        torch.tensor(X_val, dtype=torch.float32).unsqueeze(1),
+        torch.tensor(y_val),
+    )
+    ds_test = TensorDataset(
+        torch.tensor(X_test, dtype=torch.float32).unsqueeze(1),
+        torch.tensor(y_test),
+    )
 
     dl_train = DataLoader(ds_train, args.bs, shuffle=True)
     dl_val = DataLoader(ds_val, args.bs)

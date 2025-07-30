@@ -173,9 +173,7 @@ def main():
 
     labels_raw = np.load(label_path)
     if labels_raw.shape[1] == n_concepts:
-        labels_raw = np.repeat(labels_raw[:, :, None], n_rep, axis=2).reshape(
-            n_blocks, n_concepts * n_rep
-        )
+        labels_raw = np.repeat(labels_raw[:, :, None], n_rep, axis=2).reshape(n_blocks, n_concepts * n_rep)
 
     if args.category == "color":
         mask_2d = labels_raw != 0
@@ -186,15 +184,11 @@ def main():
         cluster_path = os.path.join(args.label_dir, "All_video_label_cluster.npy")
         clusters = np.load(cluster_path)
         if clusters.shape[1] == n_concepts:
-            clusters = np.repeat(clusters[:, :, None], n_rep, axis=2).reshape(
-                n_blocks, n_concepts * n_rep
-            )
+            clusters = np.repeat(clusters[:, :, None], n_rep, axis=2).reshape(n_blocks, n_concepts * n_rep)
         mask_2d &= clusters == args.cluster
 
     mask_flat = mask_2d.reshape(-1)
-    labels_flat = labels_raw.reshape(-1)[mask_flat] - (
-        1 if args.category == "color" else 0
-    )
+    labels_flat = labels_raw.reshape(-1)[mask_flat] - (1 if args.category == "color" else 0)
 
     def expand_labels_flat(labels_1d: np.ndarray, n_win: int) -> np.ndarray:
         return np.repeat(labels_1d[:, None], n_win, axis=1)
