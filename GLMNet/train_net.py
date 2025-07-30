@@ -98,9 +98,9 @@ def main():
 
     rng.shuffle(all_subj)
     selected = all_subj[: args.n_subj]
-    # 85% of the subset is used for training and 2 subjects for validation
-    train_subj = selected[: int(len(selected) * 0.85)]
-    val_subj = selected[int(len(selected) * 0.85): int(len(selected) * 0.85) + 2]
+    # first subjects are used for training and validation, the rest form the test set
+    train_subj = selected[:13]
+    val_subj = selected[13:15]
     test_subj = [s for s in all_subj if s not in train_subj and s not in val_subj]
 
     print("Training subjects:", train_subj)
