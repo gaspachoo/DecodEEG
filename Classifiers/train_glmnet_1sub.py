@@ -19,6 +19,7 @@ from Classifiers.modules.utils import (
     standard_scale_features,
     compute_raw_stats,
     normalize_raw,
+    block_split,
 )
 from Classifiers.modules.models import mlpnet, glmnet
 
@@ -200,8 +201,14 @@ def main():
 
     block_ids_win = np.repeat(block_ids, n_win)
 
-    rng = np.random.RandomState(args.split_seed)
-    val_block, test_block = rng.choice(np.arange(n_blocks), size=2, replace=False)
+    ckpt_seed_dir = os.path.join(
+        args.save_dir,
+        "mono",
+        args.subj_name,
+        "ordered",
+        str(args.split_seed),
+    )
+    val_block, test_block = block_split(args.split_seed, n_blocks, ckpt_seed_dir)
     print(f"Validation block: {val_block}, Test block: {test_block}")
 
     train_mask = (block_ids_win != val_block) & (block_ids_win != test_block)

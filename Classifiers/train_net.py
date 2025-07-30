@@ -13,7 +13,7 @@ project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(_
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from Classifiers.modules.utils import compute_raw_stats, normalize_raw
+from Classifiers.modules.utils import compute_raw_stats, normalize_raw, subject_split
 from Classifiers.modules.models import deepnet, eegnet
 
 
@@ -93,7 +93,6 @@ def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using device: {device}")
 
-    rng = np.random.default_rng(args.seed)
     all_subj = sorted(
         f[:-4] for f in os.listdir(args.raw_dir) if f.startswith("sub") and f.endswith(".npy")
     )
@@ -101,12 +100,13 @@ def main():
     if args.n_subj > len(all_subj):
         raise ValueError("Not enough subject files in raw_dir")
 
-    rng.shuffle(all_subj)
-    selected = all_subj[: args.n_subj]
-    # first subjects are used for training and validation, the rest form the test set
-    train_subj = selected[:13]
-    val_subj = selected[13:15]
-    test_subj = [s for s in all_subj if s not in train_subj and s not in val_subj]
+    ckpt_seed_dir = os.path.join(args.save_dir, "multi", str(args.seed))
+    train_subj, val_subj, test_subj = subject_split(
+        args.seed,
+        all_subj,
+        ckpt_seed_dir=ckpt_seed_dir,
+        n_select=args.n_subj,
+    )
 
     print("Training subjects:", train_subj)
     print("Validation subjects:", val_subj)
