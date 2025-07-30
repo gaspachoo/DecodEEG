@@ -31,7 +31,7 @@ python multi_inference.py \
   --concepts 0 1 \
   --repetitions 0 1 \
   --blocks 0 1 \
-  --checkpoint_root ./Checkpoints/multi/0/glmnet
+  --checkpoint_root ./Classifiers/checkpoints/multi/0/glmnet
 ```
 
 The script now evaluates all seven windows for every combination of the

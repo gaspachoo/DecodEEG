@@ -105,7 +105,7 @@ if __name__ == "__main__":
 
     if args.checkpoint_path is None:
         args.checkpoint_path = os.path.join(
-            "./Checkpoints",
+            "./Classifiers/checkpoints",
             "mono",
             args.subject_prefix,
             args.train_mode,

@@ -50,7 +50,7 @@ def parse_args():
         ],
         help="Label file",
     )
-    p.add_argument("--save_dir", default="./Checkpoints")
+    p.add_argument("--save_dir", default="./Classifiers/checkpoints")
     p.add_argument(
         "--cluster",
         type=int,

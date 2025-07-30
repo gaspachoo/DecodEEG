@@ -49,7 +49,7 @@ python Classifiers/multi_inference.py \
   --blocks 0 1 \
   --concepts 0 1 \
   --repetitions 0 1 \
-  --checkpoint_root ./Checkpoints/multi/0/glmnet
+  --checkpoint_root ./Classifiers/checkpoints/multi/0/glmnet
 ```
 
 The script evaluates all windows for every selected segment and prints the
