@@ -72,21 +72,6 @@ def parse_args():
         help="Type of learning rate scheduler",
     )
     p.add_argument("--use_wandb", action="store_true")
-    p.add_argument(
-        "--train_subjects",
-        nargs="+",
-        help="List of subjects to use for training (without extension)",
-    )
-    p.add_argument(
-        "--val_subjects",
-        nargs="+",
-        help="List of subjects to use for validation (without extension)",
-    )
-    p.add_argument(
-        "--test_subjects",
-        nargs="+",
-        help="List of subjects to use for testing (without extension)",
-    )
     p.add_argument("--n_subj", type=int, default=15, help="Number of subjects to sample for train/val when not provided")
     p.add_argument("--seed", type=int, default=0, help="Random seed for subject sampling")
     p.add_argument(
@@ -144,39 +129,15 @@ def main():
         f[:-4] for f in os.listdir(args.raw_dir) if f.startswith("sub") and f.endswith(".npy")
     )
 
-    def check_exists(names: list[str], where: list[str]) -> None:
-        missing = [n for n in names if n not in where]
-        if missing:
-            raise ValueError(f"Subject files not found: {missing}")
+    if args.n_subj > len(all_subj):
+        raise ValueError("Not enough subject files in raw_dir")
 
-    if args.train_subjects:
-        check_exists(args.train_subjects, all_subj)
-        train_subj = list(args.train_subjects)
-        remaining = [s for s in all_subj if s not in train_subj]
-    else:
-        if args.n_subj > len(all_subj):
-            raise ValueError("Not enough subject files in raw_dir")
-        rng.shuffle(all_subj)
-        selected = all_subj[: args.n_subj]
-        train_subj = selected[:13]
-        remaining = [s for s in all_subj if s not in train_subj]
-
-    if args.val_subjects:
-        check_exists(args.val_subjects, remaining)
-        val_subj = list(args.val_subjects)
-        remaining = [s for s in remaining if s not in val_subj]
-    else:
-        if len(remaining) < 2:
-            raise ValueError("Not enough subjects available for validation")
-        rng.shuffle(remaining)
-        val_subj = remaining[:2]
-        remaining = remaining[2:]
-
-    if args.test_subjects:
-        check_exists(args.test_subjects, all_subj)
-        test_subj = list(args.test_subjects)
-    else:
-        test_subj = remaining
+    rng.shuffle(all_subj)
+    selected = all_subj[: args.n_subj]
+    # first subjects are used for training and validation, the rest form the test set
+    train_subj = selected[:13]
+    val_subj = selected[13:15]
+    test_subj = [s for s in all_subj if s not in train_subj and s not in val_subj]
 
     print("Training subjects:", train_subj)
     print("Validation subjects:", val_subj)
