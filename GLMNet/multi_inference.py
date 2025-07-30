@@ -23,7 +23,7 @@ from GLMNet.modules.utils_glmnet import (
     normalize_raw,
     standard_scale_features,
 )
-from GLMNet.modules.models_paper import mlpnet, glmnet
+from GLMNet.modules.models import mlpnet, glmnet
 
 
 OCCIPITAL_IDX = list(range(50, 62))

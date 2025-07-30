@@ -15,7 +15,7 @@ from GLMNet.modules.utils_glmnet import (
     load_scaler,
     load_raw_stats,
 )
-from GLMNet.modules.models_paper import mlpnet, glmnet
+from GLMNet.modules.models import mlpnet, glmnet
 
 
 OCCIPITAL_IDX = list(range(50, 62))  # 12 occipital channels

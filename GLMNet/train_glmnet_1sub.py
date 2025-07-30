@@ -20,7 +20,7 @@ from GLMNet.modules.utils_glmnet import (
     compute_raw_stats,
     normalize_raw,
 )
-from GLMNet.modules.models_paper import mlpnet, glmnet
+from GLMNet.modules.models import mlpnet, glmnet
 
 
 # -------- W&B -------------------------------------------------------------
