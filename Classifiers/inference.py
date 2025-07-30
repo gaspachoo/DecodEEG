@@ -1,4 +1,7 @@
-import os, sys
+"""Generate embeddings or logits from EEG windows using pre-trained models."""
+
+import os
+import sys
 import torch
 import numpy as np
 import argparse
@@ -15,39 +18,36 @@ from Classifiers.modules.utils import (
     load_scaler,
     load_raw_stats,
 )
-from Classifiers.modules.models import mlpnet, glmnet
+from Classifiers.modules.models import mlpnet, glmnet, eegnet, deepnet
 
 
 OCCIPITAL_IDX = list(range(50, 62))  # 12 occipital channels
 
 
-def inf_glmnet(model, scaler, raw_sw, stats, device="cuda"):
+def inf_model(model, model_type, raw_sw, stats, scaler=None, device="cuda"):
+    """Infer embeddings or logits for all windows."""
 
-    # always compute spectral features from the raw windows
     raw_flat = raw_sw.reshape(-1, raw_sw.shape[-2], raw_sw.shape[-1])
-    feat_sw = mlpnet.compute_features(raw_flat)
-    # reshape back to (runs, videos, trials, windows, channels, features)
-    feat_sw = feat_sw.reshape(raw_sw.shape[:-2] + feat_sw.shape[-2:])
-
-    # flatten for batch inference
-    raw_flat = raw_sw.reshape(-1, raw_sw.shape[-2], raw_sw.shape[-1])
-    feat_flat = feat_sw.reshape(-1, feat_sw.shape[-2], feat_sw.shape[-1])
-
     raw_flat = normalize_raw(raw_flat, stats[0], stats[1])
 
-    # scale features
-    feat_scaled = standard_scale_features(feat_flat, scaler=scaler)
+    if model_type == "glmnet":
+        feat_flat = mlpnet.compute_features(raw_flat)
+        feat_scaled = standard_scale_features(feat_flat, scaler=scaler)
+        input_flat = [np.concatenate([r, f], axis=-1) for r, f in zip(raw_flat, feat_scaled)]
+    else:
+        input_flat = raw_flat
 
-    embeddings = []
+    outputs = []
     with torch.no_grad():
-        for raw_seg, feat_seg in zip(raw_flat, feat_scaled):
-            x = np.concatenate([raw_seg, feat_seg], axis=-1)
-            x = torch.tensor(x, dtype=torch.float32).unsqueeze(0).to(device)
+        for x in input_flat:
+            t = torch.tensor(x, dtype=torch.float32).unsqueeze(0).to(device)
+            if model_type == "glmnet":
+                out = model(t, return_features=True)
+            else:
+                out = model(t)
+            outputs.append(out.squeeze(0).cpu().numpy())
 
-            z = model(x, return_features=True)
-            embeddings.append(z.squeeze(0).cpu().numpy())
-
-    return np.stack(embeddings)  # shape: (N_segments, emb_dim // 2)
+    return np.stack(outputs)
 
 # --- Main generation loop ---
 def generate_all_embeddings(
@@ -55,18 +55,19 @@ def generate_all_embeddings(
     ckpt_path,
     output_dir,
     subject_prefix,
+    model_type="glmnet",
     device="cuda",
 ):
-    """Run GLMNet inference for all subjects matching the prefix."""
+    """Run inference for all subjects matching the prefix."""
 
     os.makedirs(output_dir, exist_ok=True)
 
-    scaler_path = os.path.join(ckpt_path, "scaler.pkl")
     stats_path = os.path.join(ckpt_path, "raw_stats.npz")
-    model_path = os.path.join(ckpt_path, "glmnet_best.pt")
-    
-    scaler = load_scaler(scaler_path)
+    scaler_path = os.path.join(ckpt_path, "scaler.pkl")
+    model_path = os.path.join(ckpt_path, f"{model_type}_best.pt")
+
     stats = load_raw_stats(stats_path)
+    scaler = load_scaler(scaler_path) if model_type == "glmnet" else None
 
     for fname in os.listdir(raw_dir):
         if not (fname.endswith('.npy') and fname.startswith(subject_prefix)):
@@ -80,12 +81,17 @@ def generate_all_embeddings(
         time_len = RAW_SW.shape[-1]
         num_channels = RAW_SW.shape[-2]
         state = torch.load(model_path, map_location=device)
-        out_dim = glmnet.infer_out_dim(state)
-        model = glmnet(OCCIPITAL_IDX, C=num_channels, T=time_len, out_dim=out_dim)
+        if model_type == "glmnet":
+            out_dim = glmnet.infer_out_dim(state)
+            model = glmnet(OCCIPITAL_IDX, C=num_channels, T=time_len, out_dim=out_dim)
+        else:
+            out_dim = state["out.weight"].shape[0]
+            model_cls = eegnet if model_type == "eegnet" else deepnet
+            model = model_cls(out_dim=out_dim, C=num_channels, T=time_len)
         model.load_state_dict(state)
         model.to(device)
         model.eval()
-        embeddings = inf_glmnet(model, scaler, RAW_SW, stats, device)
+        embeddings = inf_model(model, model_type, RAW_SW, stats, scaler, device)
         
         out_path = os.path.join(output_dir, f"{subj}.npy")
         np.save(out_path, embeddings)
@@ -97,9 +103,10 @@ if __name__ == "__main__":
 
     parser.add_argument('--raw_dir', default="./data/Preprocessing/Segmented_500ms_sw", help='directory of pre-windowed raw EEG .npy files')
     parser.add_argument('--subject_prefix', default='sub3', help='prefix of subject files to process')
-    parser.add_argument('--checkpoint_path', help='path to GLMNet checkpoint')
+    parser.add_argument('--checkpoint_path', help='path to model checkpoint')
     parser.add_argument('--train_mode', choices=['ordered', 'shuffle'], default='ordered', help='training mode for mono model')
     parser.add_argument('--seed', type=int, default=0, help='Training seed')
+    parser.add_argument('--model', choices=['glmnet', 'eegnet', 'deepnet'], default='glmnet', help='Model type')
     parser.add_argument('--output_dir', default="./data/eeg_segments", help='where to save projected embeddings')
     args = parser.parse_args()
 
@@ -110,7 +117,7 @@ if __name__ == "__main__":
             args.subject_prefix,
             args.train_mode,
             str(args.seed),
-            "glmnet",
+            args.model,
             "label_cluster",
         )
 
@@ -119,4 +126,5 @@ if __name__ == "__main__":
         args.checkpoint_path,
         args.output_dir,
         args.subject_prefix,
+        args.model,
     )

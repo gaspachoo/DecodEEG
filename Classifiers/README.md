@@ -21,7 +21,8 @@ Example structure:
 `multi_inference.py` loads this JSON and automatically maps the
 predicted class indices from each checkpoint to their textual
 descriptions.  The script infers the label category from the final directory
-name of each checkpoint path.
+name of each checkpoint path. Any of the supported models can be chosen via
+``--model``.
 
 Example usage:
 
@@ -31,7 +32,8 @@ python multi_inference.py \
   --concepts 0 1 \
   --repetitions 0 1 \
   --blocks 0 1 \
-  --checkpoint_root ./Classifiers/checkpoints/multi/0/glmnet
+  --checkpoint_root ./Classifiers/checkpoints/multi/0/deepnet \
+  --model deepnet
 ```
 
 The script now evaluates all seven windows for every combination of the
