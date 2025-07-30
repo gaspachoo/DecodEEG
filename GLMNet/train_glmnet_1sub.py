@@ -20,8 +20,6 @@ from GLMNet.modules.utils_glmnet import (
     standard_scale_features,
     compute_raw_stats,
     normalize_raw,
-    load_scaler,
-    load_raw_stats,
 )
 from GLMNet.modules.models_paper import mlpnet
 
@@ -345,12 +343,6 @@ def main():
     state = torch.load(glmnet_path, map_location=device)
     model.load_state_dict(state)
     model.eval()
-
-    scaler = load_scaler(scaler_path)
-    raw_mean, raw_std = load_raw_stats(stats_path)
-
-    # ``X_test`` and ``F_test_scaled`` were already prepared, this shows how to
-    # reload preprocessing objects when running evaluation separately.
 
     test_acc = 0
     preds, labels_test = [], []

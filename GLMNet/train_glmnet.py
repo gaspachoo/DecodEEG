@@ -20,8 +20,6 @@ from GLMNet.modules.utils_glmnet import (
     standard_scale_features,
     compute_raw_stats,
     normalize_raw,
-    load_scaler,
-    load_raw_stats,
 )
 from GLMNet.modules.models_paper import mlpnet
 
