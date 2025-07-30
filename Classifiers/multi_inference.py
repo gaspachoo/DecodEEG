@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-"""Run multiple GLMNet models on a single EEG example.
+"""Run multiple EEG classification models on a single EEG example.
 
-This script loads several GLMNet checkpoints and converts their
+This script loads several checkpoints and converts their
 predictions into text using ``label_mappings.json``.  For each model we
 evaluate all seven windows of the EEG sample and keep the label that
 appears most often.  The textual outputs are concatenated to form a
@@ -23,7 +23,7 @@ from Classifiers.modules.utils import (
     normalize_raw,
     standard_scale_features,
 )
-from Classifiers.modules.models import mlpnet, glmnet
+from Classifiers.modules.models import mlpnet, glmnet, eegnet, deepnet
 
 
 OCCIPITAL_IDX = list(range(50, 62))
@@ -52,24 +52,39 @@ def load_label_mappings(path: str) -> Dict[str, Dict[int, str]]:
     return mappings
 
 
-def prepare_input(eeg: np.ndarray, stats, scaler) -> torch.Tensor:
-    """Normalize raw EEG and compute scaled features."""
+def prepare_input(eeg: np.ndarray, stats, scaler, model_type: str) -> torch.Tensor:
+    """Normalize raw EEG and optionally compute features."""
     raw = eeg[np.newaxis, ...].astype(np.float32)
-    feat = mlpnet.compute_features(raw)
     raw = normalize_raw(raw, stats[0], stats[1])
-    feat = standard_scale_features(feat, scaler=scaler)
-    x = np.concatenate([raw, feat], axis=-1)
+    if model_type == "glmnet":
+        feat = mlpnet.compute_features(raw)
+        feat = standard_scale_features(feat, scaler=scaler)
+        x = np.concatenate([raw, feat], axis=-1)
+    else:
+        x = raw
     return torch.tensor(x, dtype=torch.float32)
 
 
-def load_model(ckpt_dir: str, channels: int, time_len: int, device: str) -> tuple[glmnet, any, tuple[np.ndarray, np.ndarray]]:
-    """Load GLMNet model with its scaler and raw statistics."""
-    scaler = load_scaler(os.path.join(ckpt_dir, "scaler.pkl"))
+def load_model(
+    ckpt_dir: str, channels: int, time_len: int, device: str, model_type: str
+) -> tuple[glmnet, any, tuple[np.ndarray, np.ndarray]]:
+    """Load model with optional scaler and raw statistics."""
+
     stats = load_raw_stats(os.path.join(ckpt_dir, "raw_stats.npz"))
-    model_path = os.path.join(ckpt_dir, "glmnet_best.pt")
-    state = torch.load(model_path, map_location=device)
-    out_dim = glmnet.infer_out_dim(state)
-    model = glmnet(OCCIPITAL_IDX, C=channels, T=time_len, out_dim=out_dim)
+    if model_type == "glmnet":
+        scaler = load_scaler(os.path.join(ckpt_dir, "scaler.pkl"))
+        model_path = os.path.join(ckpt_dir, "glmnet_best.pt")
+        state = torch.load(model_path, map_location=device)
+        out_dim = glmnet.infer_out_dim(state)
+        model = glmnet(OCCIPITAL_IDX, C=channels, T=time_len, out_dim=out_dim)
+    else:
+        scaler = None
+        model_path = os.path.join(ckpt_dir, f"{model_type}_best.pt")
+        state = torch.load(model_path, map_location=device)
+        out_dim = state["out.weight"].shape[0]
+        model_cls = eegnet if model_type == "eegnet" else deepnet
+        model = model_cls(out_dim=out_dim, C=channels, T=time_len)
+
     model.load_state_dict(state)
     model.to(device)
     model.eval()
@@ -92,15 +107,17 @@ def index_to_text(
 
 def majority_vote(
     eeg: np.ndarray,
-    model: glmnet,
+    model: torch.nn.Module,
     scaler,
     stats,
     device: str,
+    model_type: str,
 ) -> Tuple[int, float]:
     """Return the most common prediction index and its confidence."""
+
     preds = []
     for win in eeg:
-        x = prepare_input(win, stats, scaler).to(device)
+        x = prepare_input(win, stats, scaler, model_type).to(device)
         with torch.no_grad():
             logits = model(x)
             preds.append(int(logits.argmax(dim=-1).item()))
@@ -113,11 +130,12 @@ def majority_vote(
 
 def infer_description(
     eeg: np.ndarray,
-    models: Dict[str, glmnet],
+    models: Dict[str, torch.nn.Module],
     scalers: Dict[str, any],
     stats: Dict[str, tuple],
     device: str,
     label_map: Dict[str, Dict[int, str]],
+    model_type: str,
 ) -> Tuple[str, List[float]]:
     """Generate a descriptive phrase and confidences for one EEG sample."""
 
@@ -136,6 +154,7 @@ def infer_description(
             scalers["color_binary"],
             stats["color_binary"],
             device,
+            model_type,
         )
         confidences.append(conf)
         if idx == 1:
@@ -149,6 +168,7 @@ def infer_description(
                 scalers["color"],
                 stats["color"],
                 device,
+                model_type,
             )
             color_desc = f"with dominant color {index_to_text('color', idx_col, label_map)}"
             confidences.append(conf_col)
@@ -162,6 +182,7 @@ def infer_description(
             scalers["face_appearance"],
             stats["face_appearance"],
             device,
+            model_type,
         )
         face_desc = index_to_text("face_appearance", idx, label_map)
         confidences.append(conf)
@@ -173,6 +194,7 @@ def infer_description(
             scalers["human_appearance"],
             stats["human_appearance"],
             device,
+            model_type,
         )
         human_desc = index_to_text("human_appearance", idx, label_map)
         confidences.append(conf)
@@ -183,6 +205,7 @@ def infer_description(
         scalers["label_cluster"],
         stats["label_cluster"],
         device,
+        model_type,
     )
     cluster_text = index_to_text("label_cluster", idx_cluster, label_map)
     confidences.append(conf_cluster)
@@ -194,6 +217,7 @@ def infer_description(
         scalers[label_cat],
         stats[label_cat],
         device,
+        model_type,
     )
     label_text = index_to_text("label", idx_label, label_map, cluster_idx=idx_cluster)
     confidences.append(conf_label)
@@ -205,6 +229,7 @@ def infer_description(
             scalers["obj_number"],
             stats["obj_number"],
             device,
+            model_type,
         )
         obj_desc = index_to_text("obj_number", idx, label_map)
         confidences.append(conf)
@@ -216,6 +241,7 @@ def infer_description(
             scalers["optical_flow_score"],
             stats["optical_flow_score"],
             device,
+            model_type,
         )
         flow_desc = index_to_text("optical_flow_score", idx, label_map)
         confidences.append(conf)
@@ -236,7 +262,7 @@ def infer_description(
 
 
 def main() -> None:
-    p = argparse.ArgumentParser(description="Run multiple GLMNet models on EEG windows")
+    p = argparse.ArgumentParser(description="Run multiple EEG models on EEG windows")
     p.add_argument("--eeg", required=True, help="Path to EEG numpy file (concept, repetition, window, C, T)")
     p.add_argument(
         "--blocks",
@@ -262,7 +288,13 @@ def main() -> None:
     p.add_argument(
         "--checkpoint_root",
         required=True,
-        help="Directory containing all GLMNet checkpoints"
+        help="Directory containing all model checkpoints"
+    )
+    p.add_argument(
+        "--model",
+        choices=["glmnet", "eegnet", "deepnet"],
+        default="glmnet",
+        help="Type of model used"
     )
     p.add_argument(
         "--mapping_path",
@@ -281,6 +313,7 @@ def main() -> None:
         help="File to save confidence scores",
     )
     args = p.parse_args()
+    model_type = args.model
 
     eeg_all = np.load(args.eeg)
     print(f"Loaded EEG data with shape {eeg_all.shape}")
@@ -322,7 +355,7 @@ def main() -> None:
 
     def load(cat: str):
         path = ckpt_dirs[cat]
-        return load_model(path, channels, time_len, args.device)
+        return load_model(path, channels, time_len, args.device, args.model)
 
     models = {}
     scalers = {}
@@ -346,7 +379,7 @@ def main() -> None:
                         eeg = eeg_all[con, rep]
 
                     phrase, confidences = infer_description(
-                        eeg, models, scalers, stats, args.device, label_map
+                        eeg, models, scalers, stats, args.device, label_map, model_type
                     )
 
                     print(f"Block {blk} Concept {con} Repetition {rep}:")

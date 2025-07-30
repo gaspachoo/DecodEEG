@@ -41,7 +41,8 @@ selected model.  Predictions from the seven windows are combined using a
 majority vote to obtain one label per category.  The script
 `Classifiers/multi_inference.py` loads multiple checkpoints, performs this voting
 procedure and maps the predicted indices to text via
-`label_mappings.json`.  The individual pieces are merged into a single English
+`label_mappings.json`.  Any of the supported models (``glmnet``, ``eegnet`` or ``deepnet``)
+can be selected with ``--model``. The individual pieces are merged into a single English
 phrase like:
 
 ```
@@ -59,7 +60,8 @@ python Classifiers/multi_inference.py \
   --blocks 0 1 \
   --concepts 0 1 \
   --repetitions 0 1 \
-  --checkpoint_root ./Classifiers/checkpoints/multi/0/glmnet
+  --checkpoint_root ./Classifiers/checkpoints/multi/0/eegnet \
+  --model eegnet
 ```
 
 The script evaluates all windows for every selected segment and prints the
