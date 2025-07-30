@@ -14,13 +14,7 @@ project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(_
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-
-from Classifiers.modules.utils import (
-    standard_scale_features,
-    compute_raw_stats,
-    normalize_raw,
-    subject_split,
-)
+from Classifiers.modules.utils import standard_scale_features, compute_raw_stats, normalize_raw, subject_split
 from Classifiers.modules.models import mlpnet, glmnet
 
 
@@ -153,7 +147,6 @@ def main():
     )
 
     n_blocks, n_concepts, n_rep, n_win, C, T = sample_raw.shape
-
     sample_raw = sample_raw.reshape(n_blocks, n_concepts * n_rep, n_win, C, T)
     sample_feat = sample_feat.reshape(n_blocks, n_concepts * n_rep, n_win, C, -1)
 
@@ -200,6 +193,10 @@ def main():
 
     def load_subject(name: str) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         subj_raw = np.load(os.path.join(args.raw_dir, f"{name}.npy"))
+        subj_raw = subj_raw.reshape(n_blocks, n_concepts * n_rep, n_win, C, T)
+        subj_raw = subj_raw.reshape(-1, n_win, C, T)[mask_flat]
+        subj_labels = base_labels.copy()
+        
         feat_path = os.path.join(args.cache_dir, f"{name}_{1000*duration_ms}_feat.npy")
         if os.path.exists(feat_path):
             subj_feat = np.load(feat_path)
@@ -208,11 +205,9 @@ def main():
                 subj_raw.reshape(-1, subj_raw.shape[-2], subj_raw.shape[-1]), win_sec=duration_ms
             ).reshape(*subj_raw.shape[:4], subj_raw.shape[-2], -1)
             np.save(feat_path, subj_feat)
-        subj_raw = subj_raw.reshape(n_blocks, n_concepts * n_rep, n_win, C, T)
         subj_feat = subj_feat.reshape(n_blocks, n_concepts * n_rep, n_win, C, -1)
-        subj_raw = subj_raw.reshape(-1, n_win, C, T)[mask_flat]
         subj_feat = subj_feat.reshape(-1, n_win, C, feat_dim)[mask_flat]
-        subj_labels = base_labels.copy()
+        
         return subj_raw, subj_feat, subj_labels
 
     def concat_subjects(names: list[str]):
@@ -235,19 +230,15 @@ def main():
 
     # Flatten the window dimension so each row is one EEG segment
     X_train = X_train.reshape(-1, C, T)
-    F_train = F_train.reshape(-1, C, feat_dim)
     y_train = y_train.reshape(-1)
-
     X_val = X_val.reshape(-1, C, T)
-    F_val = F_val.reshape(-1, C, feat_dim)
     y_val = y_val.reshape(-1)
-
     X_test = X_test.reshape(-1, C, T)
-    F_test = F_test.reshape(-1, C, feat_dim)
     y_test = y_test.reshape(-1)
     
-    num_channels = C
-    time_len = T
+    F_train = F_train.reshape(-1, C, feat_dim)
+    F_val = F_val.reshape(-1, C, feat_dim)
+    F_test = F_test.reshape(-1, C, feat_dim)
 
     # Normalization parameters from training data
     raw_mean, raw_std = compute_raw_stats(X_train)
@@ -290,8 +281,8 @@ def main():
 
     model = glmnet(
         OCCIPITAL_IDX,
-        C=num_channels,
-        T=time_len,
+        C=C,
+        T=T,
         feat_dim=feat_dim,
         out_dim=num_unique_labels,
     ).to(device)
