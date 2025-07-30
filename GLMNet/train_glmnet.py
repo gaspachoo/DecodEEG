@@ -150,11 +150,11 @@ def main():
         ckpt_name += f"_cluster{args.cluster}"
     ckpt_dir = os.path.join(args.save_dir, f"sub_{name_ids}", ckpt_name)
     os.makedirs(ckpt_dir, exist_ok=True)
+    glmnet_path = os.path.join(ckpt_dir, "glmnet_best.pt")
+    stats_path = os.path.join(ckpt_dir, "raw_stats.npz")
     shallownet_path = os.path.join(ckpt_dir, "shallownet.pt")
     mlpnet_path = os.path.join(ckpt_dir, "mlpnet.pt")
-    stats_path = os.path.join(ckpt_dir, "raw_stats.npz")
     scaler_path = os.path.join(ckpt_dir, "scaler.pkl")
-    glmnet_path = os.path.join(ckpt_dir, "glmnet_best.pt")
 
     sample_raw = np.load(os.path.join(args.raw_dir, f"{train_subj[0]}.npy"))
     duration_ms = int(re.search(r'_(\d+)ms_', os.path.basename(args.raw_dir)).group(1)) / 1000

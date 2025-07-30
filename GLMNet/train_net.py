@@ -73,6 +73,7 @@ def format_labels(labels: np.ndarray, category: str) -> np.ndarray:
         case "face_appearance" | "human_appearance" | "label_cluster":
             return labels.astype(np.int64)
         case "color_binary":
+            # Collapse all non-zero colors into the dominant color class
             return (labels != 0).astype(np.int64)
         case "label" | "obj_number":
             labels = labels - 1
