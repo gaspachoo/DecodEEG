@@ -249,12 +249,18 @@ def train_category(
     scaler = None
     feat_dim = 0
     if feat is not None:
-        F_train_scaled, scaler = standard_scale_features(X_train[:, :, :, T:], return_scaler=True)
-        F_val_scaled = standard_scale_features(X_val[:, :, :, T:], scaler=scaler)
-        F_test_scaled = standard_scale_features(X_test[:, :, :, T:], scaler=scaler)
-        X_train = np.concatenate([X_train[:, :, :, :T], F_train_scaled], axis=2)
-        X_val = np.concatenate([X_val[:, :, :, :T], F_val_scaled], axis=2)
-        X_test = np.concatenate([X_test[:, :, :, :T], F_test_scaled], axis=2)
+        # Extract spectral features from the end of the time dimension
+        F_train_scaled, scaler = standard_scale_features(
+            X_train[:, :, T:], return_scaler=True
+        )
+        F_val_scaled = standard_scale_features(X_val[:, :, T:], scaler=scaler)
+        F_test_scaled = standard_scale_features(X_test[:, :, T:], scaler=scaler)
+
+        # Replace unscaled features with the standardized ones
+        X_train = np.concatenate([X_train[:, :, :T], F_train_scaled], axis=2)
+        X_val = np.concatenate([X_val[:, :, :T], F_val_scaled], axis=2)
+        X_test = np.concatenate([X_test[:, :, :T], F_test_scaled], axis=2)
+
         feat_dim = F_train_scaled.shape[-1]
 
     model = train_model(
