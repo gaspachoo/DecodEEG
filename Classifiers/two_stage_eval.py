@@ -1,7 +1,7 @@
 import argparse
 import os
 import re
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Any, Optional
 
 import numpy as np
 import torch
@@ -40,7 +40,7 @@ def format_labels(labels: np.ndarray, category: str) -> np.ndarray:
 
 def prepare_datasets(
     raw: np.ndarray,
-    feat: np.ndarray | None,
+    feat: Optional[np.ndarray],
     labels: np.ndarray,
     block_ids: np.ndarray,
     val_block: int,
@@ -141,7 +141,7 @@ def train_model(
 
 def build_category_data(
     raw: np.ndarray,
-    feat: np.ndarray | None,
+    feat: Optional[np.ndarray],
     label_dir: str,
     category: str,
     cluster: int | None,
@@ -197,12 +197,21 @@ def build_category_data(
         raw, feat, labels, block_ids, val_block, test_block
     )
 
-    return (X_train, y_train), (X_val, y_val), (X_test, y_test), (raw.mean((0, 2)), raw.std((0, 2)) + 1e-6), unique_labels, out_dim
+    raw_reshaped = raw.reshape(-1, raw.shape[2], raw.shape[3])
+    raw_mean, raw_std = compute_raw_stats(raw_reshaped)
+    return (
+        (X_train, y_train),
+        (X_val, y_val),
+        (X_test, y_test),
+        (raw_mean, raw_std),
+        unique_labels,
+        out_dim,
+    )
 
 
 def train_category(
     raw: np.ndarray,
-    feat: np.ndarray | None,
+    feat: Optional[np.ndarray],
     label_dir: str,
     category: str,
     cluster: int | None,
@@ -365,7 +374,7 @@ def main() -> None:
     categories = ["label", "label_cluster"] + [f"label_cluster{i}" for i in range(len(CLUSTER_RANGES))]
 
     models: Dict[str, nn.Module] = {}
-    scalers: Dict[str, any] = {}
+    scalers: Dict[str, Any] = {}
     stats: Dict[str, Tuple[np.ndarray, np.ndarray]] = {}
 
     for cat in categories:
