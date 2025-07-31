@@ -317,12 +317,12 @@ def main() -> None:
     p.add_argument("--device", default="cuda")
     p.add_argument(
         "--prompts_path",
-        default="prompts.txt",
+        default="Outputs/prompts.txt",
         help="File to save generated prompts",
     )
     p.add_argument(
         "--confidences_path",
-        default="confidences.txt",
+        default="Outputs/confidences.txt",
         help="File to save confidence scores",
     )
     args = p.parse_args()
