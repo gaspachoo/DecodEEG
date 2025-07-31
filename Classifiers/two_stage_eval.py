@@ -349,12 +349,12 @@ def evaluate(
 
 def main() -> None:
     p = argparse.ArgumentParser(description="Train label models and evaluate two-stage approach")
-    p.add_argument("--raw_dir", default="./data/Preprocessing/Segmented_1000ms_sw")
+    p.add_argument("--raw_dir", default="./data/Preprocessing/Segmented_500ms_sw")
     p.add_argument("--label_dir", default="./data/meta_info")
     p.add_argument("--subj_name", default="sub3")
     p.add_argument("--save_dir", default="./Classifiers/checkpoints")
     p.add_argument("--model", choices=["glmnet", "eegnet", "deepnet"], default="glmnet")
-    p.add_argument("--epochs", type=int, default=100)
+    p.add_argument("--epochs", type=int, default=250)
     p.add_argument("--bs", type=int, default=64)
     p.add_argument("--lr", type=float, default=1e-4)
     p.add_argument("--seed", type=int, default=0)
