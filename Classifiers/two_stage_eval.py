@@ -218,7 +218,7 @@ def train_category(
     device: str,
     C: int,
     T: int,
-) -> Tuple[nn.Module, Tuple[np.ndarray, np.ndarray], None | any]:
+):
     (X_train, y_train), (X_val, y_val), (X_test, y_test), stats, uniq_labels, out_dim = build_category_data(
         raw,
         feat,
