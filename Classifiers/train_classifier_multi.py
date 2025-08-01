@@ -19,7 +19,7 @@ from Classifiers.modules.models import mlpnet, glmnet, deepnet, eegnet
 
 
 # -------- W&B -------------------------------------------------------------
-PROJECT_NAME = "eeg2video-classifiersv4"  # <‑‑ change if you need another project
+PROJECT_NAME = "DecodEEG-Multi"  # <‑‑ change if you need another project
 
 # ------------------------------ constants ---------------------------------
 OCCIPITAL_IDX = list(range(50, 62))  # 12 occipital channels
