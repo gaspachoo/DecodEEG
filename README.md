@@ -39,6 +39,14 @@ make checkpoints_mono SUBJECT=sub3 SEED=0 MODEL=glmnet shuffle=1
 
 These two commands will run respectively `train_classifier_multi` and `train_classifier_mono`
 
+For mono, 2 splitting methods for the dataset have been tested :
+- Shuffle : Out of the 1400 EEGs from all blocks (segmented in sliding windows), we take 80% for training, 10% for validation, 10% for testing.
+- Ordered : 5 blocks for training, 1 block for validation, 1 block for testing.
+
+For multi, 13 subject's EEGs are used for training, 2 for validation, 5 for testing.
+
+You can also classify the category `label` for a classic 40-classes classification.
+
 ## Classification and text generation
 
  - During inference you must use a EEG preprocessing which has the same number of windows of the one which have been used to generate the checkpoints .  
