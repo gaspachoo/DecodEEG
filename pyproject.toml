@@ -1,0 +1,16 @@
+[project]
+name = "decodeeg"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.10.13"
+dependencies = [
+    "torch @ https://download.pytorch.org/whl/cu126/torch-2.6.0%2Bcu126-cp310-cp310-win_amd64.whl",
+    "torchvision @ https://download.pytorch.org/whl/cu126/torchvision-0.21.0%2Bcu126-cp310-cp310-win_amd64.whl",
+    "torchaudio @ https://download.pytorch.org/whl/cu126/torchaudio-2.6.0%2Bcu126-cp310-cp310-win_amd64.whl",
+    "numpy>=2.2.6",
+    "scikit-learn>=1.7.2",
+    "tqdm>=4.67.1",
+    "wandb>=0.22.2",
+    "pickle",
+]
