@@ -1,4 +1,3 @@
-import os
 import numpy as np
 import math
 from scipy.fftpack import fft
@@ -46,7 +45,6 @@ def DE_PSD(data, fre, time_window, which="both"):
 
     # print(fStartNum[0],fEndNum[0])
     n = data.shape[0]
-    m = data.shape[1]
 
     # print(m,n,l)
     if which in ("both", "psd"):
@@ -59,7 +57,7 @@ def DE_PSD(data, fre, time_window, which="both"):
     else:
         de = None
     # Hanning window
-    Hlength = int(window * fs)  ##added int()
+    Hlength = int(window * fs)  # added int()
     # Hwindow=hanning(Hlength)
     Hwindow = np.array(
         [
@@ -68,7 +66,6 @@ def DE_PSD(data, fre, time_window, which="both"):
         ]
     )
 
-    WindowPoints = fs * window
     dataNow = data[0:n]
     for j in range(n):
         temp = dataNow[j]

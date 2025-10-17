@@ -3,6 +3,7 @@ import numpy as np
 import pickle
 import os
 
+
 def standard_scale_features(X, scaler=None, return_scaler=False):
     """Scale features with ``StandardScaler``.
 
