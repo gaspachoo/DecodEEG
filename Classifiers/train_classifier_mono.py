@@ -10,7 +10,9 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau, StepLR, CosineAnnealingL
 import pickle
 from sklearn.metrics import confusion_matrix
 
-project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+project_root = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+)
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
@@ -29,7 +31,11 @@ OCCIPITAL_IDX = list(range(50, 62))
 
 def parse_args():
     p = argparse.ArgumentParser()
-    p.add_argument("--raw_dir", default="./data/Preprocessing/Segmented_1000ms_sw", help="directory with .npy files")
+    p.add_argument(
+        "--raw_dir",
+        default="./data/Preprocessing/Segmented_1000ms_sw",
+        help="directory with .npy files",
+    )
     p.add_argument("--label_dir", default="./data/meta_info", help="Label file")
     p.add_argument(
         "--category",
@@ -52,11 +58,16 @@ def parse_args():
         type=int,
         help="Cluster index to filter labels (only valid when --category label)",
     )
-    p.add_argument("--model", choices=["glmnet","eegnet","deepnet"], default="glmnet")
+    p.add_argument("--model", choices=["glmnet", "eegnet", "deepnet"], default="glmnet")
     p.add_argument("--epochs", type=int, default=500)
     p.add_argument("--bs", type=int, default=100)
     p.add_argument("--lr", type=float, default=1e-4)
-    p.add_argument("--min_lr", type=float, default=1e-6, help="Minimum learning rate for the scheduler")
+    p.add_argument(
+        "--min_lr",
+        type=float,
+        default=1e-6,
+        help="Minimum learning rate for the scheduler",
+    )
     p.add_argument(
         "--scheduler",
         type=str,
@@ -67,7 +78,9 @@ def parse_args():
     p.add_argument("--use_wandb", action="store_true")
     p.add_argument("--subj_name", default="sub3", help="Subject name to process")
     p.add_argument("--seed", type=int, default=0, help="Random seed")
-    p.add_argument("--shuffle", action="store_true", help="Shuffle samples instead of block split")
+    p.add_argument(
+        "--shuffle", action="store_true", help="Shuffle samples instead of block split"
+    )
     return p.parse_args()
 
 
@@ -96,7 +109,9 @@ def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using device: {device}")
 
-    ckpt_name = args.category + (f"_cluster{args.cluster}" if args.cluster is not None else "")
+    ckpt_name = args.category + (
+        f"_cluster{args.cluster}" if args.cluster is not None else ""
+    )
     mode = "shuffle" if args.shuffle else "ordered"
     ckpt_dir = os.path.join(
         args.save_dir,
@@ -119,10 +134,12 @@ def main():
     n_blocks, n_concepts, n_rep, n_win, C, T = raw.shape
 
     if args.model == "glmnet":
-        duration_ms = int(re.search(r"_(\d+)ms_", os.path.basename(args.raw_dir)).group(1)) / 1000
-        feat = mlpnet.compute_features(raw.reshape(-1, C, T), win_sec=duration_ms).reshape(
-            n_blocks, n_concepts * n_rep, n_win, C, -1
+        duration_ms = (
+            int(re.search(r"_(\d+)ms_", os.path.basename(args.raw_dir)).group(1)) / 1000
         )
+        feat = mlpnet.compute_features(
+            raw.reshape(-1, C, T), win_sec=duration_ms
+        ).reshape(n_blocks, n_concepts * n_rep, n_win, C, -1)
         feat_dim = feat.shape[-1]
     else:
         feat = None
@@ -135,14 +152,22 @@ def main():
         label_path = os.path.join(args.label_dir, "All_video_color.npy")
     labels_raw = np.load(label_path)
     if labels_raw.shape[1] == n_concepts:
-        labels_raw = np.repeat(labels_raw[:, :, None], n_rep, axis=2).reshape(n_blocks, n_concepts * n_rep)
+        labels_raw = np.repeat(labels_raw[:, :, None], n_rep, axis=2).reshape(
+            n_blocks, n_concepts * n_rep
+        )
 
-    mask_2d = (labels_raw != 0) if args.category == "color" else np.ones_like(labels_raw, bool)
+    mask_2d = (
+        (labels_raw != 0)
+        if args.category == "color"
+        else np.ones_like(labels_raw, bool)
+    )
 
     if args.cluster is not None:
         clusters = np.load(os.path.join(args.label_dir, "All_video_label_cluster.npy"))
         if clusters.shape[1] == n_concepts:
-            clusters = np.repeat(clusters[:, :, None], n_rep, axis=2).reshape(n_blocks, n_concepts * n_rep)
+            clusters = np.repeat(clusters[:, :, None], n_rep, axis=2).reshape(
+                n_blocks, n_concepts * n_rep
+            )
         mask_2d &= clusters == args.cluster
 
     block_ids = np.repeat(np.arange(n_blocks), n_concepts * n_rep)
@@ -152,7 +177,9 @@ def main():
     raw = raw.reshape(-1, n_win, C, T)[mask_flat]
     if feat is not None:
         feat = feat.reshape(-1, n_win, C, feat_dim)[mask_flat]
-    labels_flat = labels_raw.reshape(-1)[mask_flat] - (1 if args.category == "color" else 0)
+    labels_flat = labels_raw.reshape(-1)[mask_flat] - (
+        1 if args.category == "color" else 0
+    )
 
     def expand_labels_flat(labels_1d: np.ndarray, n_win: int) -> np.ndarray:
         return np.repeat(labels_1d[:, None], n_win, axis=1)
@@ -163,11 +190,15 @@ def main():
         uniq = np.sort(np.unique(labels))
         mapping = {v: i for i, v in enumerate(uniq)}
         labels = np.vectorize(mapping.get)(labels)
-        print(f"Cluster {args.cluster}: mapping original labels {uniq.tolist()} -> {list(mapping.values())}")
+        print(
+            f"Cluster {args.cluster}: mapping original labels {uniq.tolist()} -> {list(mapping.values())}"
+        )
 
     unique_labels, counts_labels = np.unique(labels, return_counts=True)
     num_unique_labels = len(unique_labels)
-    label_final_distribution = {int(u): int(c) for u, c in zip(unique_labels, counts_labels)}
+    label_final_distribution = {
+        int(u): int(c) for u, c in zip(unique_labels, counts_labels)
+    }
     print("Label distribution after formating:", label_final_distribution)
 
     X_all = raw.reshape(-1, C, T)
@@ -239,17 +270,23 @@ def main():
     dl_test = DataLoader(ds_test, args.bs)
 
     if args.model == "glmnet":
-        model = glmnet(OCCIPITAL_IDX, C=C, T=T, feat_dim=feat_dim, out_dim=num_unique_labels).to(device)
+        model = glmnet(
+            OCCIPITAL_IDX, C=C, T=T, feat_dim=feat_dim, out_dim=num_unique_labels
+        ).to(device)
     elif args.model in ["eegnet", "deepnet"]:
         model_cls = eegnet if args.model == "eegnet" else deepnet
         model = model_cls(out_dim=num_unique_labels, C=C, T=T).to(device)
     else:
-        raise ValueError(f"Unknown model: {args.model}. Must be one of: glmnet, eegnet, deepnet.")
+        raise ValueError(
+            f"Unknown model: {args.model}. Must be one of: glmnet, eegnet, deepnet."
+        )
 
     opt = optim.Adam(model.parameters(), lr=args.lr)
 
     if args.scheduler == "reducelronplateau":
-        scheduler = ReduceLROnPlateau(opt, mode="max", factor=0.8, patience=10, verbose=False, min_lr=args.min_lr)
+        scheduler = ReduceLROnPlateau(
+            opt, mode="max", factor=0.8, patience=10, verbose=False, min_lr=args.min_lr
+        )
     elif args.scheduler == "steplr":
         scheduler = StepLR(opt, step_size=10, gamma=0.5)
     elif args.scheduler == "cosine":
@@ -300,7 +337,9 @@ def main():
                     pg["lr"] = args.min_lr
             new_lr = opt.param_groups[0]["lr"]
             if new_lr < old_lr:
-                tqdm.write(f"Epoch {ep:05d}: reducing learning rate of group 0 to {new_lr:.4e}.")
+                tqdm.write(
+                    f"Epoch {ep:05d}: reducing learning rate of group 0 to {new_lr:.4e}."
+                )
         current_lr = opt.param_groups[0]["lr"]
 
         if val_acc > best_val:

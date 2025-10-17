@@ -6,11 +6,12 @@ import torch
 import numpy as np
 import argparse
 
-project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+project_root = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 )
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
-    
+
 
 from Classifiers.modules.utils import (
     standard_scale_features,
@@ -33,7 +34,9 @@ def inf_model(model, model_type, raw_sw, stats, scaler=None, device="cuda"):
     if model_type == "glmnet":
         feat_flat = mlpnet.compute_features(raw_flat)
         feat_scaled = standard_scale_features(feat_flat, scaler=scaler)
-        input_flat = [np.concatenate([r, f], axis=-1) for r, f in zip(raw_flat, feat_scaled)]
+        input_flat = [
+            np.concatenate([r, f], axis=-1) for r, f in zip(raw_flat, feat_scaled)
+        ]
     else:
         input_flat = raw_flat
 
@@ -54,6 +57,7 @@ def inf_model(model, model_type, raw_sw, stats, scaler=None, device="cuda"):
             outputs.append(out.squeeze(0).cpu().numpy())
 
     return np.stack(outputs)
+
 
 # --- Main generation loop ---
 def generate_all_embeddings(
@@ -76,7 +80,7 @@ def generate_all_embeddings(
     scaler = load_scaler(scaler_path) if model_type == "glmnet" else None
 
     for fname in os.listdir(raw_dir):
-        if not (fname.endswith('.npy') and fname.startswith(subject_prefix)):
+        if not (fname.endswith(".npy") and fname.startswith(subject_prefix)):
             continue
         print(f"Processing {fname}...")
         subj = os.path.splitext(fname)[0]
@@ -110,22 +114,43 @@ def generate_all_embeddings(
         model.to(device)
         model.eval()
         embeddings = inf_model(model, model_type, RAW_SW, stats, scaler, device)
-        
+
         out_path = os.path.join(output_dir, f"{subj}.npy")
         np.save(out_path, embeddings)
         print(f"Saved embeddings for {subj}, shape {embeddings.shape}")
+
 
 # --- CLI ---
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--raw_dir', default="./data/Preprocessing/Segmented_500ms_sw", help='directory of pre-windowed raw EEG .npy files')
-    parser.add_argument('--subject_prefix', default='sub3', help='prefix of subject files to process')
-    parser.add_argument('--checkpoint_path', help='path to model checkpoint')
-    parser.add_argument('--train_mode', choices=['ordered', 'shuffle'], default='ordered', help='training mode for mono model')
-    parser.add_argument('--seed', type=int, default=0, help='Training seed')
-    parser.add_argument('--model', choices=['glmnet', 'eegnet', 'deepnet'], default='glmnet', help='Model type')
-    parser.add_argument('--output_dir', default="./data/eeg_segments", help='where to save projected embeddings')
+    parser.add_argument(
+        "--raw_dir",
+        default="./data/Preprocessing/Segmented_500ms_sw",
+        help="directory of pre-windowed raw EEG .npy files",
+    )
+    parser.add_argument(
+        "--subject_prefix", default="sub3", help="prefix of subject files to process"
+    )
+    parser.add_argument("--checkpoint_path", help="path to model checkpoint")
+    parser.add_argument(
+        "--train_mode",
+        choices=["ordered", "shuffle"],
+        default="ordered",
+        help="training mode for mono model",
+    )
+    parser.add_argument("--seed", type=int, default=0, help="Training seed")
+    parser.add_argument(
+        "--model",
+        choices=["glmnet", "eegnet", "deepnet"],
+        default="glmnet",
+        help="Model type",
+    )
+    parser.add_argument(
+        "--output_dir",
+        default="./data/eeg_segments",
+        help="where to save projected embeddings",
+    )
     args = parser.parse_args()
 
     if args.checkpoint_path is None:

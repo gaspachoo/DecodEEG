@@ -46,7 +46,9 @@ def main(label_path: str, output_path: str) -> None:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Create clustered labels from All_video_label.npy")
+    parser = argparse.ArgumentParser(
+        description="Create clustered labels from All_video_label.npy"
+    )
     parser.add_argument(
         "--label_path",
         default="./data/meta_info/All_video_label.npy",

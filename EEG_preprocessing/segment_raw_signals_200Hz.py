@@ -95,7 +95,9 @@ def segment_all_files(
         )
 
         for blk in range(7):
-            for cpt in tqdm(range(_CONCEPTS_PER_BLOCK), leave=False, desc=f"sub{subject} blk{blk}"):
+            for cpt in tqdm(
+                range(_CONCEPTS_PER_BLOCK), leave=False, desc=f"sub{subject} blk{blk}"
+            ):
                 for rep in range(_REPS_PER_CONCEPT):
                     segs[blk, cpt, rep] = extract_2s_segment(
                         block=blk,

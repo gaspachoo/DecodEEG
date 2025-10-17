@@ -119,7 +119,9 @@ def train_model(
     T: int,
 ) -> nn.Module:
     if model_type == "glmnet":
-        model = glmnet(OCCIPITAL_IDX, C=C, T=T, feat_dim=feat_dim, out_dim=out_dim).to(device)
+        model = glmnet(OCCIPITAL_IDX, C=C, T=T, feat_dim=feat_dim, out_dim=out_dim).to(
+            device
+        )
     else:
         model_cls = eegnet if model_type == "eegnet" else deepnet
         model = model_cls(out_dim=out_dim, C=C, T=T).to(device)
@@ -196,14 +198,20 @@ def build_category_data(
         label_path = os.path.join(label_dir, "All_video_color.npy")
     labels_raw = np.load(label_path)
     if labels_raw.shape[1] == n_concepts:
-        labels_raw = np.repeat(labels_raw[:, :, None], n_rep, axis=2).reshape(n_blocks, n_concepts * n_rep)
+        labels_raw = np.repeat(labels_raw[:, :, None], n_rep, axis=2).reshape(
+            n_blocks, n_concepts * n_rep
+        )
 
-    mask_2d = (labels_raw != 0) if category == "color" else np.ones_like(labels_raw, bool)
+    mask_2d = (
+        (labels_raw != 0) if category == "color" else np.ones_like(labels_raw, bool)
+    )
 
     if cluster is not None:
         clusters = np.load(os.path.join(label_dir, "All_video_label_cluster.npy"))
         if clusters.shape[1] == n_concepts:
-            clusters = np.repeat(clusters[:, :, None], n_rep, axis=2).reshape(n_blocks, n_concepts * n_rep)
+            clusters = np.repeat(clusters[:, :, None], n_rep, axis=2).reshape(
+                n_blocks, n_concepts * n_rep
+            )
         mask_2d &= clusters == cluster
 
     block_ids = np.repeat(np.arange(n_blocks), n_concepts * n_rep)
@@ -215,7 +223,9 @@ def build_category_data(
         feat = feat.reshape(-1, feat.shape[2], feat.shape[3], feat.shape[4])[mask_flat]
     labels_flat = labels_raw.reshape(-1)[mask_flat] - (1 if category == "color" else 0)
 
-    labels = format_labels(np.repeat(labels_flat[:, None], raw.shape[1], axis=1), category)
+    labels = format_labels(
+        np.repeat(labels_flat[:, None], raw.shape[1], axis=1), category
+    )
 
     if cluster is not None and category == "label":
         uniq = np.sort(np.unique(labels))
@@ -342,7 +352,14 @@ def train_category(
     return model, (raw_mean, raw_std), scaler, (X_test_raw[:, :, :T], y_test)
 
 
-def two_stage_predict(eeg: np.ndarray, models: Dict[str, nn.Module], scalers, stats, device: str, model_type: str) -> int:
+def two_stage_predict(
+    eeg: np.ndarray,
+    models: Dict[str, nn.Module],
+    scalers,
+    stats,
+    device: str,
+    model_type: str,
+) -> int:
     idx_cluster, _ = majority_vote(
         eeg,
         models["label_cluster"],
@@ -394,7 +411,9 @@ def evaluate(
             )
             preds_label.append(idx_one)
             preds_two.append(
-                two_stage_predict(eeg[None, ...], models, scalers, stats, device, model_type)
+                two_stage_predict(
+                    eeg[None, ...], models, scalers, stats, device, model_type
+                )
             )
 
         labels_true = y_test
@@ -402,7 +421,9 @@ def evaluate(
         preds_two = np.array(preds_two)
     else:
         if raw is None or labels_all is None:
-            raise ValueError("Raw data and labels must be provided when shuffle is False")
+            raise ValueError(
+                "Raw data and labels must be provided when shuffle is False"
+            )
         n_blocks, n_concepts, n_rep = labels_all.shape[:3]
         preds_label = []
         preds_two = []
@@ -437,7 +458,9 @@ def evaluate(
 
 
 def main() -> None:
-    p = argparse.ArgumentParser(description="Train label models and evaluate two-stage approach")
+    p = argparse.ArgumentParser(
+        description="Train label models and evaluate two-stage approach"
+    )
     p.add_argument("--raw_dir", default="./data/Preprocessing/Segmented_500ms_sw")
     p.add_argument("--label_dir", default="./data/meta_info")
     p.add_argument("--subj_name", default="sub3")
@@ -454,20 +477,26 @@ def main() -> None:
     device = args.device
     raw = np.load(os.path.join(args.raw_dir, f"{args.subj_name}.npy"))
     n_blocks, n_concepts, n_rep, n_win, C, T = raw.shape
-    ckpt_seed_dir = os.path.join(args.save_dir, "mono", args.subj_name, f"seed{args.seed}")
+    ckpt_seed_dir = os.path.join(
+        args.save_dir, "mono", args.subj_name, f"seed{args.seed}"
+    )
     val_block, test_block = block_split(args.seed, n_blocks, ckpt_seed_dir)
 
     if args.model == "glmnet":
-        duration_ms = int(re.search(r"_(\d+)ms_", os.path.basename(args.raw_dir)).group(1)) / 1000
-        feat_all = mlpnet.compute_features(raw.reshape(-1, C, T), win_sec=duration_ms).reshape(
-            n_blocks, n_concepts * n_rep, n_win, C, -1
+        duration_ms = (
+            int(re.search(r"_(\d+)ms_", os.path.basename(args.raw_dir)).group(1)) / 1000
         )
+        feat_all = mlpnet.compute_features(
+            raw.reshape(-1, C, T), win_sec=duration_ms
+        ).reshape(n_blocks, n_concepts * n_rep, n_win, C, -1)
     else:
         feat_all = None
 
     raw = raw.reshape(n_blocks, n_concepts * n_rep, n_win, C, T)
 
-    categories = ["label", "label_cluster"] + [f"label_cluster{i}" for i in range(len(CLUSTER_RANGES))]
+    categories = ["label", "label_cluster"] + [
+        f"label_cluster{i}" for i in range(len(CLUSTER_RANGES))
+    ]
 
     models: Dict[str, nn.Module] = {}
     scalers: Dict[str, Any] = {}

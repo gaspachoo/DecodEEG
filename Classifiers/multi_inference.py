@@ -31,16 +31,17 @@ OCCIPITAL_IDX = list(range(50, 62))
 # Mapping from label cluster index to the range of original label IDs (inclusive)
 # used during cluster-specific training.
 CLUSTER_RANGES = [
-    (1, 7),   # Land Animal
+    (1, 7),  # Land Animal
     (8, 11),  # Water Animal
-    (12, 14), # Plant
-    (15, 18), # Exercise
-    (19, 21), # Human
-    (22, 27), # Natural Scene
-    (28, 32), # Food
-    (33, 35), # Musical
-    (36, 40), # Transportation
+    (12, 14),  # Plant
+    (15, 18),  # Exercise
+    (19, 21),  # Human
+    (22, 27),  # Natural Scene
+    (28, 32),  # Food
+    (33, 35),  # Musical
+    (36, 40),  # Transportation
 ]
+
 
 def load_label_mappings(path: str) -> Dict[str, Dict[int, str]]:
     """Load textual descriptions for every label category."""
@@ -102,6 +103,7 @@ def load_model(
     model.to(device)
     model.eval()
     return model, scaler, stats
+
 
 def index_to_text(
     category: str,
@@ -183,7 +185,9 @@ def infer_description(
                 device,
                 model_type,
             )
-            color_desc = f"with dominant color {index_to_text('color', idx_col, label_map)}"
+            color_desc = (
+                f"with dominant color {index_to_text('color', idx_col, label_map)}"
+            )
             confidences.append(conf_col)
         else:
             color_desc = index_to_text("color_binary", idx, label_map)
@@ -276,7 +280,11 @@ def infer_description(
 
 def main() -> None:
     p = argparse.ArgumentParser(description="Run multiple EEG models on EEG windows")
-    p.add_argument("--eeg", required=True, help="Path to EEG numpy file (concept, repetition, window, C, T)")
+    p.add_argument(
+        "--eeg",
+        required=True,
+        help="Path to EEG numpy file (concept, repetition, window, C, T)",
+    )
     p.add_argument(
         "--blocks",
         type=int,
@@ -301,18 +309,18 @@ def main() -> None:
     p.add_argument(
         "--checkpoint_root",
         required=True,
-        help="Directory containing all model checkpoints"
+        help="Directory containing all model checkpoints",
     )
     p.add_argument(
         "--model",
         choices=["glmnet", "eegnet", "deepnet"],
         default="glmnet",
-        help="Type of model used"
+        help="Type of model used",
     )
     p.add_argument(
         "--mapping_path",
         default=os.path.join(os.path.dirname(__file__), "label_mappings.json"),
-        help="Path to label_mappings.json"
+        help="Path to label_mappings.json",
     )
     p.add_argument("--device", default="cuda")
     p.add_argument(
