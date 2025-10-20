@@ -6,7 +6,7 @@ deepnet, eegnet, shallownet, mlpnet, glmnet
 
 import math
 import numpy as np
-from EEG_preprocessing.DE_PSD import DE_PSD
+from Classifiers.modules.utils import DE_PSD
 
 import torch
 import torch.nn as nn
