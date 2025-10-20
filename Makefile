@@ -1,7 +1,6 @@
 # Makefile to train Classifiers checkpoints
 
-# Default Python interpreter
-PYTHON ?= python
+RUN := uv run
 
 # Training scripts used for training
 TRAIN_MULTI_SCRIPT := Classifiers/train_classifier_multi.py
@@ -33,7 +32,7 @@ checkpoints_multi:
        for c in $(CATEGORIES); do \
                ckpt="$(CKPT_ROOT)/multi/$(SEED)/$(MODEL)/$$c/$(MODEL)_best.pt"; \
                if [ ! -f $$ckpt ]; then \
-                       $(PYTHON) $(TRAIN_MULTI_SCRIPT) --category $$c --model $(MODEL) --seed $(SEED) --save_dir $(CKPT_ROOT) $(WANDB_ARG); \
+                       $(RUN) $(TRAIN_MULTI_SCRIPT) --category $$c --model $(MODEL) --seed $(SEED) --save_dir $(CKPT_ROOT) $(WANDB_ARG); \
                else \
                        echo "[Makefile] Skip $$c: checkpoint already exists"; \
                fi; \
@@ -41,7 +40,7 @@ checkpoints_multi:
        for cl in $(LABEL_CLUSTERS); do \
                ckpt="$(CKPT_ROOT)/multi/$(SEED)/$(MODEL)/label_cluster$$cl/$(MODEL)_best.pt"; \
                if [ ! -f $$ckpt ]; then \
-                       $(PYTHON) $(TRAIN_MULTI_SCRIPT) --category label --cluster $$cl --model $(MODEL) --seed $(SEED) --save_dir $(CKPT_ROOT) $(WANDB_ARG); \
+                       $(RUN) $(TRAIN_MULTI_SCRIPT) --category label --cluster $$cl --model $(MODEL) --seed $(SEED) --save_dir $(CKPT_ROOT) $(WANDB_ARG); \
                else \
                        echo "[Makefile] Skip label cluster $$cl: checkpoint already exists"; \
                fi; \
@@ -54,7 +53,7 @@ checkpoints_mono:
        for c in $(CATEGORIES); do \
                ckpt="$(CKPT_ROOT)/mono/$(SUBJECT)/$(MODE)/seed$(SEED)/$(MODEL)/$$c/$(MODEL)_best.pt"; \
                if [ ! -f $$ckpt ]; then \
-                       $(PYTHON) $(TRAIN_MONO_SCRIPT) --category $$c --model $(MODEL) --seed $(SEED) --subj_name $(SUBJECT) --save_dir $(CKPT_ROOT) $(SHUFFLE_ARG) $(WANDB_ARG); \
+                       $(RUN) $(TRAIN_MONO_SCRIPT) --category $$c --model $(MODEL) --seed $(SEED) --subj_name $(SUBJECT) --save_dir $(CKPT_ROOT) $(SHUFFLE_ARG) $(WANDB_ARG); \
                else \
                        echo "[Makefile] Skip $$c: checkpoint already exists"; \
                fi; \
@@ -62,7 +61,7 @@ checkpoints_mono:
        for cl in $(LABEL_CLUSTERS); do \
                ckpt="$(CKPT_ROOT)/mono/$(SUBJECT)/$(MODE)/seed$(SEED)/$(MODEL)/label_cluster$$cl/$(MODEL)_best.pt"; \
                if [ ! -f $$ckpt ]; then \
-                       $(PYTHON) $(TRAIN_MONO_SCRIPT) --category label --cluster $$cl --model $(MODEL) --seed $(SEED) --subj_name $(SUBJECT) --save_dir $(CKPT_ROOT) $(SHUFFLE_ARG) $(WANDB_ARG); \
+                       $(RUN) $(TRAIN_MONO_SCRIPT) --category label --cluster $$cl --model $(MODEL) --seed $(SEED) --subj_name $(SUBJECT) --save_dir $(CKPT_ROOT) $(SHUFFLE_ARG) $(WANDB_ARG); \
                else \
                        echo "[Makefile] Skip label cluster $$cl: checkpoint already exists"; \
                fi; \
