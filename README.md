@@ -27,17 +27,29 @@ Checkpoints are stored under `Classifiers/checkpoints/<mode>/<seed>/<model>/<cat
 For single-subject runs the hierarchy becomes
 `Classifiers/checkpoints/mono/<subject>/<ordered|shuffle>/seed<seed>/<model>/<category>`.
 
-Training across all categories can be automated with the Makefile:
+Training across all categories can be automated with the Makefile.
+
+A single, unified target `checkpoints` now replaces the old `checkpoints_multi` and `checkpoints_mono` targets. Use the `TARGET` variable to choose the mode. By default `TARGET=multi`.
+
+Examples:
 
 ```bash
-# Multi-subject
-make checkpoints_multi SEED=0 MODEL=glmnet use_wandb=1
+# Multi-subject (default)
+make checkpoints TARGET=multi SEED=0 MODEL=glmnet use_wandb=1
 
-# Mono-subject (ordered or shuffle)
-make checkpoints_mono SUBJECT=sub3 SEED=0 MODEL=glmnet shuffle=1
+# Mono-subject (ordered or shuffle). Set SUBJECT and optionally shuffle=1
+make checkpoints TARGET=mono SUBJECT=sub3 SEED=0 MODEL=glmnet shuffle=1
 ```
 
-These two commands will run respectively `train_classifier_multi` and `train_classifier_mono`
+Notes on variables:
+- TARGET: `multi` or `mono` (default: `multi`)
+- SUBJECT: required for `TARGET=mono` (e.g. `sub3`)
+- SEED: random seed (default defined in Makefile)
+- MODEL: model name (e.g. `glmnet`, `eegnet`, `deepnet`)
+- shuffle: if set (`shuffle=1`) mono runs use shuffled splits; otherwise ordered mode is used
+- use_wandb: set to `1` to pass the `--use_wandb` flag to training scripts
+
+The unified `checkpoints` target preserves the previous behavior and directory layout used for saved checkpoints.
 
 For mono, 2 splitting methods for the dataset have been tested :
 - Shuffle : Out of the 1400 EEGs from all blocks (segmented in sliding windows), we take 80% for training, 10% for validation, 10% for testing.

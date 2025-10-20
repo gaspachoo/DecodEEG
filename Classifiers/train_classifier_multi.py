@@ -10,9 +10,9 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau, StepLR, CosineAnnealingL
 import pickle
 from sklearn.metrics import confusion_matrix
 
-project_root = os.path.dirname(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-)
+# Ensure repository root (DecodEEG) is on sys.path so package imports like
+# `from Classifiers.modules...` work when running the script directly.
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 

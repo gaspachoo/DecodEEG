@@ -1,7 +1,5 @@
 # Makefile to train Classifiers checkpoints
 
-RUN := uv run
-
 # Training scripts used for training
 TRAIN_MULTI_SCRIPT := Classifiers/train_classifier_multi.py
 TRAIN_MONO_SCRIPT  := Classifiers/train_classifier_mono.py
@@ -25,44 +23,48 @@ MODE := $(if $(shuffle),shuffle,ordered)
 CKPT_ROOT := Classifiers/checkpoints
 
 
-# Train checkpoints for the multi-subject setup
-.PHONY: checkpoints_multi
-checkpoints_multi:
-	@set -e; \
-	for c in $(CATEGORIES); do \
-		ckpt="$(CKPT_ROOT)/multi/$(SEED)/$(MODEL)/$$c/$(MODEL)_best.pt"; \
-		if [ ! -f $$ckpt ]; then \
-			$(RUN) $(TRAIN_MULTI_SCRIPT) --category $$c --model $(MODEL) --seed $(SEED) --save_dir $(CKPT_ROOT) $(WANDB_ARG); \
-		else \
-			echo "[Makefile] Skip $$c: checkpoint already exists"; \
-		fi; \
-	done; \
-	for cl in $(LABEL_CLUSTERS); do \
-		ckpt="$(CKPT_ROOT)/multi/$(SEED)/$(MODEL)/label_cluster$$cl/$(MODEL)_best.pt"; \
-		if [ ! -f $$ckpt ]; then \
-			$(RUN) $(TRAIN_MULTI_SCRIPT) --category label --cluster $$cl --model $(MODEL) --seed $(SEED) --save_dir $(CKPT_ROOT) $(WANDB_ARG); \
-		else \
-			echo "[Makefile] Skip label cluster $$cl: checkpoint already exists"; \
-		fi; \
-	done
+# Unified train checkpoints target (multi or mono)
+.PHONY: checkpoints
+# TARGET: multi (default) or mono
+TARGET ?= multi
 
-# Train checkpoints for the mono-subject setup
-.PHONY: checkpoints_mono
-checkpoints_mono:
+# Train checkpoints (multi or mono depending on TARGET)
+checkpoints:
 	@set -e; \
-	for c in $(CATEGORIES); do \
-		ckpt="$(CKPT_ROOT)/mono/$(SUBJECT)/$(MODE)/seed$(SEED)/$(MODEL)/$$c/$(MODEL)_best.pt"; \
-		if [ ! -f $$ckpt ]; then \
-			$(RUN) $(TRAIN_MONO_SCRIPT) --category $$c --model $(MODEL) --seed $(SEED) --subj_name $(SUBJECT) --save_dir $(CKPT_ROOT) $(SHUFFLE_ARG) $(WANDB_ARG); \
-		else \
-			echo "[Makefile] Skip $$c: checkpoint already exists"; \
-		fi; \
-	done; \
-	for cl in $(LABEL_CLUSTERS); do \
-		ckpt="$(CKPT_ROOT)/mono/$(SUBJECT)/$(MODE)/seed$(SEED)/$(MODEL)/label_cluster$$cl/$(MODEL)_best.pt"; \
-		if [ ! -f $$ckpt ]; then \
-			$(RUN) $(TRAIN_MONO_SCRIPT) --category label --cluster $$cl --model $(MODEL) --seed $(SEED) --subj_name $(SUBJECT) --save_dir $(CKPT_ROOT) $(SHUFFLE_ARG) $(WANDB_ARG); \
-		else \
-			echo "[Makefile] Skip label cluster $$cl: checkpoint already exists"; \
-		fi; \
-	done
+	if [ "$(TARGET)" = "multi" ]; then \
+		for c in $(CATEGORIES); do \
+			ckpt="$(CKPT_ROOT)/multi/$(SEED)/$(MODEL)/$$c/$(MODEL)_best.pt"; \
+			if [ ! -f $$ckpt ]; then \
+				$(RUN) $(TRAIN_MULTI_SCRIPT) --category $$c --model $(MODEL) --seed $(SEED) --save_dir $(CKPT_ROOT) $(WANDB_ARG); \
+			else \
+				echo "[Makefile] Skip $$c: checkpoint already exists"; \
+			fi; \
+		done; \
+		for cl in $(LABEL_CLUSTERS); do \
+			ckpt="$(CKPT_ROOT)/multi/$(SEED)/$(MODEL)/label_cluster$$cl/$(MODEL)_best.pt"; \
+			if [ ! -f $$ckpt ]; then \
+				$(RUN) $(TRAIN_MULTI_SCRIPT) --category label --cluster $$cl --model $(MODEL) --seed $(SEED) --save_dir $(CKPT_ROOT) $(WANDB_ARG); \
+			else \
+				echo "[Makefile] Skip label cluster $$cl: checkpoint already exists"; \
+			fi; \
+		done; \
+	elif [ "$(TARGET)" = "mono" ]; then \
+		for c in $(CATEGORIES); do \
+			ckpt="$(CKPT_ROOT)/mono/$(SUBJECT)/$(MODE)/seed$(SEED)/$(MODEL)/$$c/$(MODEL)_best.pt"; \
+			if [ ! -f $$ckpt ]; then \
+				uv run $(TRAIN_MONO_SCRIPT) --category $$c --model $(MODEL) --seed $(SEED) --subj_name $(SUBJECT) --save_dir $(CKPT_ROOT) $(SHUFFLE_ARG) $(WANDB_ARG); \
+			else \
+				echo "[Makefile] Skip $$c: checkpoint already exists"; \
+			fi; \
+		done; \
+		for cl in $(LABEL_CLUSTERS); do \
+			ckpt="$(CKPT_ROOT)/mono/$(SUBJECT)/$(MODE)/seed$(SEED)/$(MODEL)/label_cluster$$cl/$(MODEL)_best.pt"; \
+			if [ ! -f $$ckpt ]; then \
+				uv run $(TRAIN_MONO_SCRIPT) --category label --cluster $$cl --model $(MODEL) --seed $(SEED) --subj_name $(SUBJECT) --save_dir $(CKPT_ROOT) $(SHUFFLE_ARG) $(WANDB_ARG); \
+			else \
+				echo "[Makefile] Skip label cluster $$cl: checkpoint already exists"; \
+			fi; \
+		done; \
+	else \
+		echo "[Makefile] Unknown TARGET '$(TARGET)'. Use TARGET=multi or TARGET=mono"; exit 1; \
+	fi
