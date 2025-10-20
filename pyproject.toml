@@ -3,7 +3,6 @@ name = "decodeeg"
 version = "0.1.0"
 description = "This project collects utilities to classify EEG recordings and convert those predictions into natural language prompts for text-to-video models. Models such as EEGNet, DeepNet and GLMNet can be trained or loaded from checkpoint directories."
 readme = "README.md"
-# Évite la résolution croisée 3.12 en limitant explicitement à 3.10
 requires-python = ">=3.10.13,<3.12"
 dependencies = [
     "torch==2.4.1+cu121",
