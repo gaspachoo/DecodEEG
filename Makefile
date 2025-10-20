@@ -28,41 +28,41 @@ CKPT_ROOT := Classifiers/checkpoints
 # Train checkpoints for the multi-subject setup
 .PHONY: checkpoints_multi
 checkpoints_multi:
-       @set -e; \
-       for c in $(CATEGORIES); do \
-               ckpt="$(CKPT_ROOT)/multi/$(SEED)/$(MODEL)/$$c/$(MODEL)_best.pt"; \
-               if [ ! -f $$ckpt ]; then \
-                       $(RUN) $(TRAIN_MULTI_SCRIPT) --category $$c --model $(MODEL) --seed $(SEED) --save_dir $(CKPT_ROOT) $(WANDB_ARG); \
-               else \
-                       echo "[Makefile] Skip $$c: checkpoint already exists"; \
-               fi; \
-       done; \
-       for cl in $(LABEL_CLUSTERS); do \
-               ckpt="$(CKPT_ROOT)/multi/$(SEED)/$(MODEL)/label_cluster$$cl/$(MODEL)_best.pt"; \
-               if [ ! -f $$ckpt ]; then \
-                       $(RUN) $(TRAIN_MULTI_SCRIPT) --category label --cluster $$cl --model $(MODEL) --seed $(SEED) --save_dir $(CKPT_ROOT) $(WANDB_ARG); \
-               else \
-                       echo "[Makefile] Skip label cluster $$cl: checkpoint already exists"; \
-               fi; \
-       done
+	@set -e; \
+	for c in $(CATEGORIES); do \
+		ckpt="$(CKPT_ROOT)/multi/$(SEED)/$(MODEL)/$$c/$(MODEL)_best.pt"; \
+		if [ ! -f $$ckpt ]; then \
+			$(RUN) $(TRAIN_MULTI_SCRIPT) --category $$c --model $(MODEL) --seed $(SEED) --save_dir $(CKPT_ROOT) $(WANDB_ARG); \
+		else \
+			echo "[Makefile] Skip $$c: checkpoint already exists"; \
+		fi; \
+	done; \
+	for cl in $(LABEL_CLUSTERS); do \
+		ckpt="$(CKPT_ROOT)/multi/$(SEED)/$(MODEL)/label_cluster$$cl/$(MODEL)_best.pt"; \
+		if [ ! -f $$ckpt ]; then \
+			$(RUN) $(TRAIN_MULTI_SCRIPT) --category label --cluster $$cl --model $(MODEL) --seed $(SEED) --save_dir $(CKPT_ROOT) $(WANDB_ARG); \
+		else \
+			echo "[Makefile] Skip label cluster $$cl: checkpoint already exists"; \
+		fi; \
+	done
 
 # Train checkpoints for the mono-subject setup
 .PHONY: checkpoints_mono
 checkpoints_mono:
-       @set -e; \
-       for c in $(CATEGORIES); do \
-               ckpt="$(CKPT_ROOT)/mono/$(SUBJECT)/$(MODE)/seed$(SEED)/$(MODEL)/$$c/$(MODEL)_best.pt"; \
-               if [ ! -f $$ckpt ]; then \
-                       $(RUN) $(TRAIN_MONO_SCRIPT) --category $$c --model $(MODEL) --seed $(SEED) --subj_name $(SUBJECT) --save_dir $(CKPT_ROOT) $(SHUFFLE_ARG) $(WANDB_ARG); \
-               else \
-                       echo "[Makefile] Skip $$c: checkpoint already exists"; \
-               fi; \
-       done; \
-       for cl in $(LABEL_CLUSTERS); do \
-               ckpt="$(CKPT_ROOT)/mono/$(SUBJECT)/$(MODE)/seed$(SEED)/$(MODEL)/label_cluster$$cl/$(MODEL)_best.pt"; \
-               if [ ! -f $$ckpt ]; then \
-                       $(RUN) $(TRAIN_MONO_SCRIPT) --category label --cluster $$cl --model $(MODEL) --seed $(SEED) --subj_name $(SUBJECT) --save_dir $(CKPT_ROOT) $(SHUFFLE_ARG) $(WANDB_ARG); \
-               else \
-                       echo "[Makefile] Skip label cluster $$cl: checkpoint already exists"; \
-               fi; \
-       done
+	@set -e; \
+	for c in $(CATEGORIES); do \
+		ckpt="$(CKPT_ROOT)/mono/$(SUBJECT)/$(MODE)/seed$(SEED)/$(MODEL)/$$c/$(MODEL)_best.pt"; \
+		if [ ! -f $$ckpt ]; then \
+			$(RUN) $(TRAIN_MONO_SCRIPT) --category $$c --model $(MODEL) --seed $(SEED) --subj_name $(SUBJECT) --save_dir $(CKPT_ROOT) $(SHUFFLE_ARG) $(WANDB_ARG); \
+		else \
+			echo "[Makefile] Skip $$c: checkpoint already exists"; \
+		fi; \
+	done; \
+	for cl in $(LABEL_CLUSTERS); do \
+		ckpt="$(CKPT_ROOT)/mono/$(SUBJECT)/$(MODE)/seed$(SEED)/$(MODEL)/label_cluster$$cl/$(MODEL)_best.pt"; \
+		if [ ! -f $$ckpt ]; then \
+			$(RUN) $(TRAIN_MONO_SCRIPT) --category label --cluster $$cl --model $(MODEL) --seed $(SEED) --subj_name $(SUBJECT) --save_dir $(CKPT_ROOT) $(SHUFFLE_ARG) $(WANDB_ARG); \
+		else \
+			echo "[Makefile] Skip label cluster $$cl: checkpoint already exists"; \
+		fi; \
+	done
